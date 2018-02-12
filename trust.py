@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from logging import basicConfig, debug, DEBUG
 
+from actors import *
+
 basicConfig(level=DEBUG,
             format='(%(threadName)-14s) %(message)s',
             )
@@ -73,95 +75,30 @@ class Simulation():
 
 
     def time_step(self):
-        
+
+        # Loop over patients
+            # Each patient chooses their current best Seller
+            # Update seller's money from sale
+            # Patient gets better or worse based on quality and placebo
+            # Update stats on patient's experience
+            # Keep track of mean quality
+
+        # Loop over Sellers
+            # Each Seller chooses their current best Supplier
+            # They fill their stock with that Supplier's stuff
+            # Update the inventories of both involved
+            # update quality of Seller's stock based on average of existing and new
+            # Update trust based on quality check
+
+        # Loop over Suppliers
+            # Supplier makes 'stuff' based on current strategy
+            # Quality is updated as average of old and new
+            # Supplier's cash goes down for costs
+            # If it goes to zero, they generate new strategy and price
+
+        pass
 
 
-class Actor():
-    """
-    This is the generalised class for actors in the simulation
-    """
-    def __init__(self, position):
-        self.position = position
-
-    def distance_to(self, actor, system_size=None):
-        """
-        Calculates the euclidean distance from this actor to the passed one. If
-        the straight-line distance is greater than half the system size, the
-        periodic boundary means that the actors are actually closer.
-        """
-        # TODO: make this 2d
-
-        this = self.position[0]
-        that = actor.position[0]
-
-        raw_dist = abs(this-that)
-        if (system_size == None): return raw_dist
-        elif (raw_dist > system_size/2):
-            return system_size - raw_dist
-        else:
-            return raw_dist
-
-    def make_dist_array(self, dependencies, system_size):
-
-        self.distance_array = [self.distance_to(dependencies[i], system_size)
-                                for i in range(len(dependencies))]
-
-        if (type(self) == Seller):
-            debug("Seller Distance Matrix: {}".format(self.distance_array))
-
-
-class Patient(Actor):
-    """
-    This is the class to model each patient
-    """
-
-    def __init__(self, nj, position=(0,0)):
-        super().__init__(position)
-
-        # Initialise the array of trust scores for each seller
-        self.trust_array = [ [0.5,0] for x in range(nj)]
-
-
-class Seller(Actor):
-    """
-    This is the class to model a seller of medicine
-    """
-
-    def __init__(self, nk, init_supply=10, position=(0,0)):
-        super().__init__(position)
-
-        # Initialise the array of trust scores for each Supplier
-        self.trust_array = [ [0.5,0] for x in range(nk)]
-
-        # Initial stock and cash
-        self.supply = init_supply
-        self.cash   = 10
-
-        # Initial price and quality are random
-        self.price      = random() + 1
-        self.strategy   = random()
-        self.quality    = random()
-
-
-
-class Supplier(Actor):
-    """
-    This is the class to model a wholesaler
-    """
-
-    def __init__(self, position=(0,0)):
-        super().__init__(position)
-
-        # Initial inventory and cash
-        self.supply = 100
-        self.cash   = 10 + random()
-
-        # Start with random quality
-        self.quality = random()
-        self.strat  = self.quality
-
-        # Initial cost random
-        self.cost = 1 + random() # Could be dependent on quality?
 
 def main():
 
