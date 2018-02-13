@@ -14,7 +14,7 @@ from logging import basicConfig, debug, DEBUG
 from actors import *
 
 basicConfig(level=DEBUG,
-            format='(%(threadName)-14s) %(message)s',
+            format='(%(threadName)-10s) %(message)s',
             )
 
 
@@ -72,6 +72,18 @@ class Simulation():
 
         for seller in self.sellers:
             seller.make_dist_array(self.suppliers, self.system_size)
+
+    def intialise_dist_arrays(self):
+
+        seller_pos = [self.sellers[i].position for i in range(self.nj)]
+        supplier_pos = [self.suppliers[i].position for i in range(self.nk)]
+
+        for patient in self.patients:
+            patient.update_distances(seller_pos)
+
+        for seller in self.sellers:
+            seller.update_distances(supplier_pos)
+
 
 
     def time_step(self):
