@@ -17,6 +17,22 @@ basicConfig(level=DEBUG,
             format='(%(threadName)-10s) %(message)s',
             )
 
+class Watcher():
+    """
+    This class handles the clairvoyance of the system, watching all sales
+    """
+
+    def __init__(self):
+        self.reset_mean()
+
+    def reset_mean(self):
+        self.num_purchases = 0
+        self.mean_quality = 0.
+
+    def update_mean(self, quality):
+        self.mean_quality = (self.mean_quality*self.num_purchases + quality) / (self.num_purchases+1)
+        self.num_purchases += 1
+        
 
 class Simulation():
     """
@@ -30,11 +46,12 @@ class Simulation():
         self.nj = nj    # Number of sellers
         self.nk = nk    # Number of wholesalers
         self.cost = cost    # Default cost of medicine (before markup)
+        self.watcher = Watcher() # For keeping track of mean quality and such
 
         self.suppliers = [Supplier() for k in range(nk)]
 
-        ratio = np.floor(self.ni/self.nj)
-        self.sellers = [Seller(self.nk, ratio) for j in range(nj)]
+        #ratio = np.floor(self.ni/self.nj)
+        self.sellers = [Seller(self.nk, self.watcher) for j in range(nj)]
 
         self.patients = [Patient(self.nj) for i in range(ni)]
 
@@ -88,27 +105,21 @@ class Simulation():
 
     def time_step(self):
 
-        # Loop over patients
-            # Each patient chooses their current best Seller
-            # Update seller's money from sale
-            # Patient gets better or worse based on quality and placebo
-            # Update stats on patient's experience
-            # Keep track of mean quality
+        for patient in self.patients:
+            # Each patient chooses their current best seller
+            patient.choose_best(self.sellers)
+            # This also handles the sale and healing of the medicine
 
-        # Loop over Sellers
-            # Each Seller chooses their current best Supplier
-            # They fill their stock with that Supplier's stuff
-            # Update the inventories of both involved
-            # update quality of Seller's stock based on average of existing and new
-            # Update trust based on quality check
+        for seller in self.sellers:
+            # Each seller chooses their current best supplier
+            seller.choose_best(self.suppliers)
+            # This also handles the sale and quality test
 
-        # Loop over Suppliers
+        for supplier in self.suppliers:
             # Supplier makes 'stuff' based on current strategy
-            # Quality is updated as average of old and new
-            # Supplier's cash goes down for costs
-            # If it goes to zero, they generate new strategy and price
+            supplier.make_meds()
 
-        pass
+        return
 
 
 
@@ -129,6 +140,8 @@ def main():
     plt.legend()
     plt.ylim( (-5,5) )
     plt.show()
+
+    sim.time_step()
 
 if __name__ == "__main__":
     main()

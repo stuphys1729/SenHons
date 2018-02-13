@@ -1,16 +1,22 @@
 import numpy as np
 import math
 from random import random
+from logging import basicConfig, debug, DEBUG
+
+basicConfig(level=DEBUG,
+            format='(%(threadName)-10s) %(message)s',
+            )
 
 
 class Actor():
     """ This is the generalised class for actors in the simulation """
     # Constants for all actors
-    self.distance_parameter = 0.1
-    self.explore_parameter = 0.5
-    self.top_n = 10
+    distance_parameter = 0.1
+    explore_parameter = 0.5
+    top_n = 10
+    epsilon = 0.1
 
-    def __init__(self, position, n):
+    def __init__(self, position, n=0):
         self.position = position
         self.min_purchase = 1
         # Initialise the array of trust scores for each seller/supplier
@@ -27,8 +33,9 @@ class Actor():
         # TODO: make this 2d
 
         this = self.position[0]
+        that = position[0]
 
-        raw_dist = abs(this-position)
+        raw_dist = abs(this-that)
         if (system_size == None): return raw_dist
         elif (raw_dist > system_size/2):
             return system_size - raw_dist
@@ -37,38 +44,48 @@ class Actor():
 
     def make_dist_array(self, dependencies, system_size):
 
-        self.distance_array = [self.distance_to(dependencies[i], system_size)
-                                for i in range(len(dependencies))]
+        self.distance_array = [self.distance_to(dependencies[i].position,
+                                system_size) for i in range(len(dependencies))]
 
-        if (type(self) == Seller):
-            debug("Seller Distance Matrix: {}".format(self.distance_array))
+        #if (type(self) == Seller):
+            #debug("Seller Distance Matrix: {}".format(self.distance_array))
 
 
     def choose_best(self, actor_list):
         """ UCB formula to decide best actor to buy from """
         choices = []
         for i in range(len(actor_list)):
-            dist_cont = self.distance_parameter*self.distance_array[i]
+            dist_cont = Actor.distance_parameter*self.distance_array[i]
             x, n = self.experiences[i]
             if n != 0:
-                ucb = x + self.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
+                ucb = x + Actor.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
             else:
                 ucb = 1.0 # avoiding division by 0
             total = ucb - dist_cont - actor_list[i].price
-        top_n = np.argpartition(choices, range(self.top_n))[:self.top_n]
+            choices.append(total)
+        consider = min(Actor.top_n, len(actor_list))
+        top_n = np.argpartition(choices, range(consider))[:consider]
+        #debug(top_n)
 
         best = None
         for dep in top_n:
-            if dep.supply >= self.min_purchase:
+            if actor_list[dep].supply >= self.min_purchase:
                 best = dep
                 break
-        if not best:
-            raise AttributeError("Best {} were all sold out".format(self.top_n))
+        t = type(actor_list[0])
+        if best == None:
+            for dep in top_n:
+                debug("{} number {} has supply {}".format(t, dep, actor_list[dep].supply))
+            raise AttributeError("Best {} were all sold out".format(top_n))
 
-        result = self.buy_from(best) # specific to class
+        #debug("Buying from {} number {}".format(t, best))
+        result = self.buy_from(actor_list[best]) # specific to class
         if result:
-            self.experiences[j][0]++
-        self.experiences[j][1]++
+            self.experiences[best][0] += 1
+        self.experiences[best][1] += 1
+
+        return
+
 
 
 
@@ -81,15 +98,16 @@ class Patient(Actor):
         super().__init__(position, nj)
         return
 
-    def buy_from(self, seller, j):
-        medicine = seller.make_purchase(self)
+    def buy_from(self, seller):
+        medicine = seller.make_purchase()
         # Patient uses medicine straight away
         better = self.take(medicine)
 
         return better
 
-    def take(medicine):
+    def take(self, medicine):
         """ This can be extended for more medicine types """
+        # TODO: Add in placebo effect
         return (medicine - random()) > 0
 
 
@@ -98,25 +116,30 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, nk, init_supply=10, position=(0,0)):
+    def __init__(self, nk, watcher, init_supply=15, position=(0,0)):
         super().__init__(position, nk)
+
+        self.watcher = watcher
 
         # Initial stock and cash
         self.supply = init_supply
-        self.cash   = 10
+        self.cash   = 1 + random()
 
         self.min_purchase = 10 # Overwrites '1' from parent class
 
         # Initial price and quality are random
         self.price      = random() + 1
-        self.strategy   = random()
+        self.strategy   = random()  # He uses this as a multiplier for the trust
+                                    # metric, not sure if I need it.
         self.quality    = random()
 
         return
 
     def make_purchase(self):
-        self.supply--
+        #debug("Seller selling 1, supply: {} before" .format(self.supply))
+        self.supply -= 1
         self.cash += self.price
+        self.watcher.update_mean(self.quality) # keep track of average quality
         return self.price # in case we want patients to have money
 
     def buy_from(self, supplier):
@@ -125,13 +148,21 @@ class Seller(Actor):
         if amount > 0:
             supplier.make_purchase(amount)
             self.cash -= amount*supplier.price
+
+            # New quality is average of old and new
+            self.quality = self.quality*self.supply + supplier.quality*amount/(self.supply + amount)
+            self.supply += amount
+
+            # Do a quality test
             result = self.test_supply(supplier.quality)
             return result
+        else: # We ran out of money
+            # not sure what to do here?
+            return 0
 
 
-    def test_supply(self, quality):
-        """ Same as patient for now """
-        return (medicine - random()) > 0
+    def test_supply(self, quality): # same as patient for now
+        return (quality - random()) > 0
 
 
 class Supplier(Actor):
@@ -141,7 +172,7 @@ class Supplier(Actor):
         super().__init__(position)
 
         # Initial inventory and cash
-        self.supply = 100
+        self.supply = 150
         self.cash   = 10 + random()
 
         # Start with random quality
@@ -149,10 +180,29 @@ class Supplier(Actor):
         self.strat  = self.quality
 
         # Initial cost random
-        self.cost = 1 + random() # Could be dependent on quality?
+        self.price = 1 + random() # Could be dependent on quality?
         # self.cost = self.quality + random()  ?
 
     def make_purchase(self, amount):
+        #debug("Supplier selling {}, supply: {} before".format(amount, self.supply))
         self.supply -= amount
         self.cash += self.price*amount
         return self.price
+
+
+    def make_meds(self):
+        if self.cash > 0:
+            amount = np.floor(self.cash)
+            qual = self.supply*self.quality + amount*self.strat
+            self.quality = qual / (self.supply + amount)
+            self.supply += amount
+
+        else:
+            self.generate_new_strategy()
+
+        # Either way, self.cash is now between 0 and 1
+
+    def generate_new_strategy(self):
+        self.strat = abs(min((self.strat + Actor.epsilon*(random()-0.5)), 1.0))
+        self.price = random() + 1 # depe on quality?
+        return
