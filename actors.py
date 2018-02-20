@@ -13,15 +13,17 @@ class Actor():
     # Constants for all actors
     distance_parameter = 0.1
     explore_parameter = 0.5
-    top_n = 10
+    top_n = 20
     epsilon = 0.1
 
-    def __init__(self, position, n=0):
+    def __init__(self, position, n=0, watcher=None):
+        self.watcher = watcher
         self.position = position
         self.min_purchase = 1
         # Initialise the array of trust scores for each seller/supplier
         self.experiences = np.zeros((n,2), dtype=np.int16)
                             # successes , trials (of that seller/supplier)
+        self.N = 0 # Total number of trials
 
 
     def distance_to(self, position, system_size=None):
@@ -63,6 +65,8 @@ class Actor():
                 ucb = 1.0 # avoiding division by 0
             total = ucb - dist_cont - actor_list[i].price
             choices.append(total)
+        self.N += 1
+
         consider = min(Actor.top_n, len(actor_list))
         top_n = np.argpartition(choices, range(consider))[:consider]
         #debug(top_n)
@@ -94,8 +98,8 @@ class Patient(Actor):
     This is the class to model each patient
     """
 
-    def __init__(self, nj, position=(0,0)):
-        super().__init__(position, nj)
+    def __init__(self, nj, watcher=None, position=(0,0)):
+        super().__init__(position, nj, watcher)
         return
 
     def buy_from(self, seller):
@@ -116,10 +120,8 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, nk, watcher, init_supply=15, position=(0,0)):
-        super().__init__(position, nk)
-
-        self.watcher = watcher
+    def __init__(self, nk, watcher=None, init_supply=15, position=(0,0)):
+        super().__init__(position, nk, watcher)
 
         # Initial stock and cash
         self.supply = init_supply
@@ -150,7 +152,8 @@ class Seller(Actor):
             self.cash -= amount*supplier.price
 
             # New quality is average of old and new
-            self.quality = self.quality*self.supply + supplier.quality*amount/(self.supply + amount)
+            self.quality = (self.quality*self.supply + supplier.quality*amount)/(
+                                self.supply + amount)
             self.supply += amount
 
             # Do a quality test
@@ -191,18 +194,18 @@ class Supplier(Actor):
 
 
     def make_meds(self):
-        if self.cash > 0:
+        if self.cash > 1:
             amount = np.floor(self.cash)
             qual = self.supply*self.quality + amount*self.strat
             self.quality = qual / (self.supply + amount)
             self.supply += amount
 
-        else:
-            self.generate_new_strategy()
+        #else:
+            #self.generate_new_strategy()
 
         # Either way, self.cash is now between 0 and 1
 
     def generate_new_strategy(self):
         self.strat = abs(min((self.strat + Actor.epsilon*(random()-0.5)), 1.0))
-        self.price = random() + 1 # depe on quality?
+        self.price = random() + 1 # depend on quality?
         return

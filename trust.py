@@ -6,7 +6,7 @@ unknown quality, and either get better or they do not (depending on medicine
 quality and the placebo effect) and update their trust in that seller
 accordingly. The Sellers themselves purchase their medicine from Suppliers.
 """
-from random import random
+from random import random, shuffle
 import numpy as np
 import matplotlib.pyplot as plt
 from logging import basicConfig, debug, DEBUG
@@ -30,9 +30,10 @@ class Watcher():
         self.mean_quality = 0.
 
     def update_mean(self, quality):
-        self.mean_quality = (self.mean_quality*self.num_purchases + quality) / (self.num_purchases+1)
+        self.mean_quality = (self.mean_quality*self.num_purchases + quality) / (
+                                self.num_purchases+1)
         self.num_purchases += 1
-        
+
 
 class Simulation():
     """
@@ -53,7 +54,7 @@ class Simulation():
         #ratio = np.floor(self.ni/self.nj)
         self.sellers = [Seller(self.nk, self.watcher) for j in range(nj)]
 
-        self.patients = [Patient(self.nj) for i in range(ni)]
+        self.patients = [Patient(self.nj, self.watcher) for i in range(ni)]
 
         self.set_positions_line()
 
@@ -103,8 +104,8 @@ class Simulation():
 
 
 
-    def time_step(self):
-
+    def time_step_sweep(self):
+        """ Method to have every patient purchase medicine """
         for patient in self.patients:
             # Each patient chooses their current best seller
             patient.choose_best(self.sellers)
@@ -121,12 +122,32 @@ class Simulation():
 
         return
 
+    def time_step_sto(self, n_samples=None):
+        """ Method to randomly choose n patients to purchase medicine """
+        if not n_samples:
+            n = len(self.sellers)
+        else:
+            n = n_samples
+
+        samples = list(range(len(self.patients)))
+        shuffle(samples)
+        for i in range(n):
+            self.patients[samples[i]].choose_best(self.sellers)
+
+        for seller in self.sellers:
+            # Each seller chooses their current best supplier
+            seller.choose_best(self.suppliers)
+            # This also handles the sale and quality test
+
+        for supplier in self.suppliers:
+            # Supplier makes 'stuff' based on current strategy
+            supplier.make_meds()
 
 
 def main():
 
-    #sim = Simulation()
-    sim = Simulation(200, 20, 2)
+    #sim = Simulation(200, 20, 2)
+    sim = Simulation()
 
     plt.scatter([sim.patients[i].position[0] for i in range(len(sim.patients))],
                 [sim.patients[i].position[1] for i in range(len(sim.patients))],
@@ -141,7 +162,16 @@ def main():
     plt.ylim( (-5,5) )
     plt.show()
 
-    sim.time_step()
+    for i in range(10000):
+        #debug("First Seller Quality: {}".format(sim.sellers[0].quality))
+
+        #sim.time_step_sweep()
+        sim.time_step_sto()
+        if (i % 100 == 0):
+            print("Mean Quality: {}".format(sim.watcher.mean_quality))
+        sim.watcher.reset_mean()
+
+
 
 if __name__ == "__main__":
     main()
