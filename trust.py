@@ -9,9 +9,11 @@ accordingly. The Sellers themselves purchase their medicine from Suppliers.
 from random import random, shuffle
 import numpy as np
 import matplotlib.pyplot as plt
+from multiprocessing import Process, Queue
 from logging import basicConfig, debug, DEBUG
 
 from actors import *
+from animator import Animator
 
 basicConfig(level=DEBUG,
             format='(%(threadName)-10s) %(message)s',
@@ -23,17 +25,41 @@ class Watcher():
     """
 
     def __init__(self):
-        self.reset_mean()
+        self.reset()
 
-    def reset_mean(self):
+    def reset(self):
+        self.reset_sales()
+        self.reset_stock()
+        self.reset_choices()
+
+    def reset_sales(self):
         self.num_purchases = 0
         self.mean_quality = 0.
 
-    def update_mean(self, quality):
-        self.mean_quality = (self.mean_quality*self.num_purchases + quality) / (
-                                self.num_purchases+1)
+    def reset_choices(self):
+        self.choice_tally = {}
+
+    def reset_stock(self):
+        self.out_of_stock = 0
+
+    def inform_sale(self, seller):
+        self.mean_quality = (self.mean_quality*self.num_purchases +
+                                seller.quality) / (self.num_purchases+1)
         self.num_purchases += 1
 
+    def inform_choice(self, index):
+        if index in self.choice_tally:
+            self.choice_tally[index] += 1
+        else:
+            self.choice_tally[index] = 1
+
+    def inform_oos(self):
+        self.out_of_stock += 1
+
+    def get_top(self):
+        v = list(self.choice_tally.values())
+        k = list(self.choice_tally.keys())
+        return k[v.index(max(v))], max(v)
 
 class Simulation():
     """
@@ -149,27 +175,41 @@ def main():
     #sim = Simulation(200, 20, 2)
     sim = Simulation()
 
-    plt.scatter([sim.patients[i].position[0] for i in range(len(sim.patients))],
-                [sim.patients[i].position[1] for i in range(len(sim.patients))],
-                c='red', label="Patients")
-    plt.scatter([sim.sellers[i].position[0] for i in range(len(sim.sellers))],
-                [sim.sellers[i].position[1] for i in range(len(sim.sellers))],
-                c='blue', label="Sellers")
-    plt.scatter([sim.suppliers[i].position[0] for i in range(len(sim.suppliers))],
-                [sim.suppliers[i].position[1] for i in range(len(sim.suppliers))],
-                c='green', label="Suppliers")
-    plt.legend()
-    plt.ylim( (-5,5) )
-    plt.show()
+    x = [seller.position[0] for seller in sim.sellers]
+    y = [seller.position[1] for seller in sim.sellers]
+    q = [seller.quality for seller in sim.sellers]
 
-    for i in range(10000):
+    plot_queue = Queue()
+    plot_queue.put( (x, y, q) )
+    animator = Animator(plot_queue)
+
+    animator_proc = Process(target=animator.animate)
+    animator_proc.start()
+
+
+
+    for i in range(1000):
         #debug("First Seller Quality: {}".format(sim.sellers[0].quality))
 
         #sim.time_step_sweep()
         sim.time_step_sto()
-        if (i % 100 == 0):
+
+        x = [seller.position[0] for seller in sim.sellers]
+        y = [seller.position[1] for seller in sim.sellers]
+        q = [seller.quality for seller in sim.sellers]
+        plot_queue.put( (x, y, q) )
+
+        if (i % 10 == 0):
             print("Mean Quality: {}".format(sim.watcher.mean_quality))
-        sim.watcher.reset_mean()
+            quals = [s.quality for s in sim.sellers]
+            top = np.argmax(quals)
+            print("Top Quality:  {} from {}".format(quals[top], top))
+            top, n = sim.watcher.get_top()
+            print("Top seller: {}, picked {} times".format(top, n))
+            print("Corresp Quality: {}".format(sim.sellers[top].quality))
+            print("Number failed sales: {}".format(sim.watcher.out_of_stock))
+            print("")
+        sim.watcher.reset()
 
 
 

@@ -58,7 +58,8 @@ class Actor():
         choices = []
         for i in range(len(actor_list)):
             dist_cont = Actor.distance_parameter*self.distance_array[i]
-            x, n = self.experiences[i]
+            xn, n = self.experiences[i]
+            x = xn / n
             if n != 0:
                 ucb = x + Actor.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
             else:
@@ -70,12 +71,14 @@ class Actor():
         consider = min(Actor.top_n, len(actor_list))
         top_n = np.argpartition(choices, range(consider))[:consider]
         #debug(top_n)
-
+        self.watcher.inform_choice(top_n[0])
         best = None
         for dep in top_n:
             if actor_list[dep].supply >= self.min_purchase:
                 best = dep
                 break
+            else:
+                self.watcher.inform_oos()
         t = type(actor_list[0])
         if best == None:
             for dep in top_n:
@@ -141,12 +144,12 @@ class Seller(Actor):
         #debug("Seller selling 1, supply: {} before" .format(self.supply))
         self.supply -= 1
         self.cash += self.price
-        self.watcher.update_mean(self.quality) # keep track of average quality
+        self.watcher.inform_sale(self) # keep track of average quality
         return self.price # in case we want patients to have money
 
     def buy_from(self, supplier):
         # Sellers want to buy as much as possible
-        amount = min(np.floor(self.cash/supplier.price), supplier.supply)
+        amount = int(min(np.floor(self.cash/supplier.price), supplier.supply))
         if amount > 0:
             supplier.make_purchase(amount)
             self.cash -= amount*supplier.price
