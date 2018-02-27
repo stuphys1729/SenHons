@@ -180,7 +180,8 @@ def main():
     q = [seller.quality for seller in sim.sellers]
 
     plot_queue = Queue()
-    plot_queue.put( (x, y, q) )
+    #plot_queue.put( (x, y, q) )
+    plot_queue.put( (x, q) )
     animator = Animator(plot_queue)
 
     animator_proc = Process(target=animator.animate)
@@ -197,7 +198,8 @@ def main():
         x = [seller.position[0] for seller in sim.sellers]
         y = [seller.position[1] for seller in sim.sellers]
         q = [seller.quality for seller in sim.sellers]
-        plot_queue.put( (x, y, q) )
+        #plot_queue.put( (x, y, q) )
+        plot_queue.put( (x, q) )
 
         if (i % 10 == 0):
             print("Mean Quality: {}".format(sim.watcher.mean_quality))

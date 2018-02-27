@@ -11,7 +11,7 @@ basicConfig(level=DEBUG,
 class Actor():
     """ This is the generalised class for actors in the simulation """
     # Constants for all actors
-    distance_parameter = 0.1
+    distance_parameter = 0.05
     explore_parameter = 0.5
     top_n = 20
     epsilon = 0.1
@@ -140,11 +140,17 @@ class Seller(Actor):
 
         return
 
+    def out_of_stock(self):
+        debug("Seller increased their price")
+        self.price += Actor.epsilon*random()
+
     def make_purchase(self):
         #debug("Seller selling 1, supply: {} before" .format(self.supply))
         self.supply -= 1
         self.cash += self.price
         self.watcher.inform_sale(self) # keep track of average quality
+        if self.supply < 1:
+            self.out_of_stock()
         return self.price # in case we want patients to have money
 
     def buy_from(self, supplier):
@@ -189,10 +195,18 @@ class Supplier(Actor):
         self.price = 1 + random() # Could be dependent on quality?
         # self.cost = self.quality + random()  ?
 
+        return
+
+    def out_of_stock(self):
+        debug("Supplier increased their price")
+        self.price += Actor.epsilon*random()
+
     def make_purchase(self, amount):
         #debug("Supplier selling {}, supply: {} before".format(amount, self.supply))
         self.supply -= amount
         self.cash += self.price*amount
+        if self.supply < 1:
+            self.out_of_stock()
         return self.price
 
 
