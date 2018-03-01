@@ -11,7 +11,7 @@ basicConfig(level=DEBUG,
 class Actor():
     """ This is the generalised class for actors in the simulation """
     # Constants for all actors
-    distance_parameter = 0.05
+    distance_parameter = 0.005
     explore_parameter = 0.5
     top_n = 20
     epsilon = 0.1
@@ -64,7 +64,7 @@ class Actor():
                 ucb = x + Actor.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
             else:
                 ucb = 1.0 # avoiding division by 0
-            total = ucb - dist_cont - actor_list[i].price
+            total = ucb + dist_cont - actor_list[i].price
             choices.append(total)
         self.N += 1
 

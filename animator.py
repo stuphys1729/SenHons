@@ -21,7 +21,7 @@ class Animator():
         data = plot_queue.get()
         if len(data) == 3:
             self.init_map(data)
-        elif len(data) == 2:
+        elif len(data) == 4:
             self.init_line(data)
 
     def init_map(self, data):
@@ -36,8 +36,11 @@ class Animator():
     def init_line(self, data):
         x = data[0]
         qual = data[1]
-        self.Q_line = Line2D(x, qual, color="blue", label="Medicine Quality")
-        self.ax_array.add_line(self.Q_line)
+        supx = data[2]
+        supq = data[3]
+        Q_line = Line2D(x, qual, color="blue", label="Medicine Quality")
+        plt.scatter(supx, supq, color='red', s=200)
+        self.ax_array.add_line(Q_line)
         self.ax_array.set_xlim(0, max(x))
         return
 
@@ -53,7 +56,13 @@ class Animator():
     def update_line(self, data):
         x = data[0]
         qual = data[1]
-        self.Q_line.set_data(x, qual)
+        supx = data[2]
+        supq = data[3]
+        self.ax_array.cla()
+
+        Q_line = Line2D(x, qual, color="blue", label="Medicine Quality")
+        plt.scatter(supx, supq, color='red', s=200)
+        self.ax_array.add_line(Q_line)
 
     def update(self, i):
         #logging.debug("Trying to update plot")
@@ -66,7 +75,7 @@ class Animator():
                 sys.exit("Stopped Animator")
             elif len(data) == 3:
                 self.update_map()
-            elif len(data) == 2:
+            elif len(data) == 4:
                 self.update_line(data)
             else:
                 sys.exit("Something went wrong")

@@ -93,6 +93,7 @@ class Simulation():
             patient.position = (pos+random(), random())
             pos += ratio
         self.system_size = pos
+        debug("System size: " + str(self.system_size))
         debug("Pos of last patient: {}".format(pos-ratio))
 
         ratio = np.floor(self.ni/self.nj)
@@ -178,10 +179,12 @@ def main():
     x = [seller.position[0] for seller in sim.sellers]
     y = [seller.position[1] for seller in sim.sellers]
     q = [seller.quality for seller in sim.sellers]
+    supx = [supplier.position[0] for supplier in sim.suppliers]
+    supq = [supplier.quality for supplier in sim.suppliers]
 
     plot_queue = Queue()
     #plot_queue.put( (x, y, q) )
-    plot_queue.put( (x, q) )
+    plot_queue.put( (x, q, supx, supq) )
     animator = Animator(plot_queue)
 
     animator_proc = Process(target=animator.animate)
@@ -198,8 +201,10 @@ def main():
         x = [seller.position[0] for seller in sim.sellers]
         y = [seller.position[1] for seller in sim.sellers]
         q = [seller.quality for seller in sim.sellers]
+        supx = [supplier.position[0] for supplier in sim.suppliers]
+        supq = [supplier.quality for supplier in sim.suppliers]
         #plot_queue.put( (x, y, q) )
-        plot_queue.put( (x, q) )
+        plot_queue.put( (x, q, supx, supq) )
 
         if (i % 10 == 0):
             print("Mean Quality: {}".format(sim.watcher.mean_quality))
