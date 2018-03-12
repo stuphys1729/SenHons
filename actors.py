@@ -16,9 +16,10 @@ class Actor():
     top_n = 20
     epsilon = 0.1
 
-    def __init__(self, position, n=0, watcher=None):
+    def __init__(self, position, uid, n=0, watcher=None):
         self.watcher = watcher
         self.position = position
+        self.id = uid
         self.min_purchase = 1
         # Initialise the array of trust scores for each seller/supplier
         self.experiences = np.zeros((n,2), dtype=np.int16)
@@ -58,10 +59,12 @@ class Actor():
         choices = []
         for i in range(len(actor_list)):
             dist_cont = Actor.distance_parameter*self.distance_array[i]
+            assert(dist_cont >= 0)
             xn, n = self.experiences[i]
             x = xn / n
             if n != 0:
-                ucb = x + Actor.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
+                ucb = x + Actor.explore_parameter*math.sqrt(
+                                                        2*math.log(self.N)/n )
             else:
                 ucb = 1.0 # avoiding division by 0
             total = ucb + dist_cont - actor_list[i].price
@@ -82,7 +85,8 @@ class Actor():
         t = type(actor_list[0])
         if best == None:
             for dep in top_n:
-                debug("{} number {} has supply {}".format(t, dep, actor_list[dep].supply))
+                debug("{} number {} has supply {}".format(t, dep,
+                                                        actor_list[dep].supply))
             raise AttributeError("Best {} were all sold out".format(top_n))
 
         #debug("Buying from {} number {}".format(t, best))
@@ -101,9 +105,13 @@ class Patient(Actor):
     This is the class to model each patient
     """
 
-    def __init__(self, nj, watcher=None, position=(0,0)):
-        super().__init__(position, nj, watcher)
+    def __init__(self, uid, nj, watcher=None, position=(0,0)):
+        super().__init__(position, uid, nj, watcher)
         return
+
+    def __str__(self):
+        return "Patient {0:04d} |\tPosition ({1:6.02f},{2:6.02f})".format(
+                    self.id, self.position[0], self.position[1])
 
     def buy_from(self, seller):
         medicine = seller.make_purchase()
@@ -123,8 +131,8 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, nk, watcher=None, init_supply=15, position=(0,0)):
-        super().__init__(position, nk, watcher)
+    def __init__(self, uid, nk, watcher=None, init_supply=15, position=(0,0)):
+        super().__init__(position, uid, nk, watcher)
 
         # Initial stock and cash
         self.supply = init_supply
@@ -139,6 +147,10 @@ class Seller(Actor):
         self.quality    = random()
 
         return
+
+    def __str__(self):
+        return "Seller {0:04d} |\tQuality: {1:04f} |\t Price: {2:04f} |\tPosition ({3:6.02f},{4:6.02f})".format(
+                    self.id, self.quality, self.price, self.position[0], self.position[1])
 
     def out_of_stock(self):
         debug("Seller increased their price")
@@ -161,8 +173,8 @@ class Seller(Actor):
             self.cash -= amount*supplier.price
 
             # New quality is average of old and new
-            self.quality = (self.quality*self.supply + supplier.quality*amount)/(
-                                self.supply + amount)
+            self.quality = (self.quality*self.supply
+                            + supplier.quality*amount)/(self.supply + amount)
             self.supply += amount
 
             # Do a quality test
@@ -180,8 +192,8 @@ class Seller(Actor):
 class Supplier(Actor):
     """ This is the class to model a wholesaler """
 
-    def __init__(self, position=(0,0)):
-        super().__init__(position)
+    def __init__(self, uid, position=(0,0)):
+        super().__init__(position, uid)
 
         # Initial inventory and cash
         self.supply = 150
@@ -197,12 +209,17 @@ class Supplier(Actor):
 
         return
 
+    def __str__(self):
+        return "Supplier {0:04d} |\tQuality: {1:04f} |\t Price: {2:04f} |\tPosition ({3:6.02f},{4:6.02f})".format(
+                        self.id, self.quality, self.price, self.position[0], self.position[1])
+
     def out_of_stock(self):
         debug("Supplier increased their price")
         self.price += Actor.epsilon*random()
 
     def make_purchase(self, amount):
-        #debug("Supplier selling {}, supply: {} before".format(amount, self.supply))
+        #debug("Supplier selling {}, supply: {} before".format(
+                                                        #amount, self.supply))
         self.supply -= amount
         self.cash += self.price*amount
         if self.supply < 1:

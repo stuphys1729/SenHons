@@ -75,14 +75,22 @@ class Simulation():
         self.cost = cost    # Default cost of medicine (before markup)
         self.watcher = Watcher() # For keeping track of mean quality and such
 
-        self.suppliers = [Supplier() for k in range(nk)]
+        self.suppliers = [Supplier(k) for k in range(nk)]
 
         #ratio = np.floor(self.ni/self.nj)
-        self.sellers = [Seller(self.nk, self.watcher) for j in range(nj)]
+        self.sellers = [Seller(j, self.nk, self.watcher) for j in range(nj)]
 
-        self.patients = [Patient(self.nj, self.watcher) for i in range(ni)]
+        self.patients = [Patient(i, self.nj, self.watcher) for i in range(ni)]
 
         self.set_positions_line()
+
+    def __str__(self):
+        suppliers   = "\n".join([str(s) for s in self.suppliers])
+        sellers     = "\n".join([str(s) for s in self.sellers])
+        patients    = "\n".join([str(p) for p in self.patients])
+        sep         = "\n" + ("-" * 90) + "\n"
+
+        return suppliers + sep + sellers + sep + patients
 
 
     def set_positions_line(self):
@@ -110,7 +118,7 @@ class Simulation():
         for supplier in self.suppliers:
             supplier.position = (pos+random(), random())
             pos += ratio
-        debug("Pos of last Supplier: {}".format(pos-ratio))
+        debug("Pos of last Supplier: {}\n".format(pos-ratio))
 
         for patient in self.patients:
             patient.make_dist_array(self.sellers, self.system_size)
@@ -171,7 +179,7 @@ class Simulation():
             supplier.make_meds()
 
 
-def main():
+def run_sim():
 
     #sim = Simulation(200, 20, 2)
     sim = Simulation()
@@ -218,6 +226,10 @@ def main():
             print("")
         sim.watcher.reset()
 
+def main():
+    #runsim()
+    sim = Simulation(200, 20, 2)
+    print(sim)
 
 
 if __name__ == "__main__":
