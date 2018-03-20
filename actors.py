@@ -113,6 +113,10 @@ class Patient(Actor):
         return "Patient {0:04d} |\tPosition ({1:6.02f},{2:6.02f})".format(
                     self.id, self.position[0], self.position[1])
 
+    def __repr__(self):
+        return "Patient {0:04d} | Psition: ({1:6.02f},{2:6.02f})".format(
+                    self.id, self.position[0], self.position[1])
+
     def buy_from(self, seller):
         medicine = seller.make_purchase()
         # Patient uses medicine straight away
@@ -150,6 +154,10 @@ class Seller(Actor):
 
     def __str__(self):
         return "Seller {0:04d} |\tQuality: {1:04f} |\t Price: {2:04f} |\tPosition ({3:6.02f},{4:6.02f})".format(
+                    self.id, self.quality, self.price, self.position[0], self.position[1])
+
+    def __repr__(self):
+        return "Seller {0:04d} | Quality: {1:04f} | Price: {2:04f} | Position ({3:6.02f},{4:6.02f})".format(
                     self.id, self.quality, self.price, self.position[0], self.position[1])
 
     def out_of_stock(self):
@@ -212,6 +220,11 @@ class Supplier(Actor):
     def __str__(self):
         return "Supplier {0:04d} |\tQuality: {1:04f} |\t Price: {2:04f} |\tPosition ({3:6.02f},{4:6.02f})".format(
                         self.id, self.quality, self.price, self.position[0], self.position[1])
+
+    def __repr__(self):
+        return "Supplier {0:04d} | Quality: {1:04f} | Price: {2:04f} | Position ({3:6.02f},{4:6.02f})".format(
+                        self.id, self.quality, self.price, self.position[0], self.position[1])
+
 
     def out_of_stock(self):
         debug("Supplier increased their price")

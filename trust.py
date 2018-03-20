@@ -9,8 +9,9 @@ accordingly. The Sellers themselves purchase their medicine from Suppliers.
 from random import random, shuffle
 import numpy as np
 import matplotlib.pyplot as plt
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pipe
 from logging import basicConfig, debug, DEBUG
+import time
 
 from actors import *
 from animator import Animator
@@ -26,6 +27,7 @@ class Watcher():
 
     def __init__(self):
         self.reset()
+        self.mean_quality_list = []
 
     def reset(self):
         self.reset_sales()
@@ -41,6 +43,10 @@ class Watcher():
 
     def reset_stock(self):
         self.out_of_stock = 0
+
+    def get_mean_qual(self):
+        self.mean_quality_list.append(self.mean_quality)
+        return self.mean_quality
 
     def inform_sale(self, seller):
         self.mean_quality = (self.mean_quality*self.num_purchases +
@@ -179,10 +185,28 @@ class Simulation():
             supplier.make_meds()
 
 
+def wait_for_input(sim, connection):
+    pause = True
+    debug("Animation Paused")
+    while pause:
+        while not connection.poll():
+            time.sleep(0.05)
+        request = connection.recv()
+
+        if request == "Pause":
+            pause = False
+            break
+        else:
+            actor, ind = request
+            if actor == "Supplier":
+                connection.send(sim.suppliers[ind])
+            else:
+                connection.send(sim.sellers[ind])
+
 def run_sim():
 
-    #sim = Simulation(200, 20, 2)
-    sim = Simulation()
+    sim = Simulation(200, 20, 2)
+    #sim = Simulation()
 
     x = [seller.position[0] for seller in sim.sellers]
     y = [seller.position[1] for seller in sim.sellers]
@@ -191,16 +215,31 @@ def run_sim():
     supq = [supplier.quality for supplier in sim.suppliers]
 
     plot_queue = Queue()
+    mine, theirs = Pipe()
     #plot_queue.put( (x, y, q) )
     plot_queue.put( (x, q, supx, supq) )
-    animator = Animator(plot_queue)
+    animator = Animator(plot_queue, theirs)
 
     animator_proc = Process(target=animator.animate)
     animator_proc.start()
 
 
+    for i in range(10):
+        if (mine.poll()):
+            request = mine.recv()
+            if request == "Pause":
+                wait_for_input(sim, mine)
+            else:
+                actor, ind = request
+                if actor == "Supplier":
+                    mine.send([sim.suppliers[ind]])
+                else:
+                    mine.send([sim.sellers[ind]])
 
-    for i in range(1000):
+
+
+
+
         #debug("First Seller Quality: {}".format(sim.sellers[0].quality))
 
         #sim.time_step_sweep()
@@ -215,7 +254,7 @@ def run_sim():
         plot_queue.put( (x, q, supx, supq) )
 
         if (i % 10 == 0):
-            print("Mean Quality: {}".format(sim.watcher.mean_quality))
+            print("Mean Quality: {}".format(sim.watcher.get_mean_qual()))
             quals = [s.quality for s in sim.sellers]
             top = np.argmax(quals)
             print("Top Quality:  {} from {}".format(quals[top], top))
@@ -226,10 +265,14 @@ def run_sim():
             print("")
         sim.watcher.reset()
 
+    plot_queue.put("STOP")
+    wait_for_input(sim, mine)
+    animator_proc.join()
+
 def main():
-    #runsim()
-    sim = Simulation(200, 20, 2)
-    print(sim)
+    run_sim()
+    #sim = Simulation(200, 20, 2)
+    #print(sim)
 
 
 if __name__ == "__main__":
