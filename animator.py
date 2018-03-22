@@ -60,6 +60,7 @@ class Animator():
         plt.scatter(x, y, c=qual, s=200, cmap='YlGn')
 
     def update_line(self, data):
+        self.data = data
         x = data[0]
         qual = data[1]
         supx = data[2]
@@ -79,7 +80,7 @@ class Animator():
         else:
             data = self.queue.get()
             #print(data)
-            if data == "STOP":
+            if data == "Stop":
                 self.pause = True
             elif len(data) == 3:
                 self.update_map()
@@ -94,6 +95,7 @@ class Animator():
         else:
             self.pause = True
         self.callback_pipe.send("Pause")
+
 
     def animate(self):
 
@@ -112,12 +114,14 @@ class Animator():
                 self.callback_pipe.send( ["Supplier", ind] )
                 supp = self.callback_pipe.recv()
                 #pprint(vars(event.mouseevent))
-                self.ax_array.text(x+1, y+0.01, repr(supp), size=20, bbox=dict(boxstyle="round"))
+                self.ax_array.text(x+1, y+0.01, repr(supp), size=20,
+                                    bbox=dict(boxstyle="round"))
                 #self.ax_array.annotate(str(supp), xy=(x,y), xytext=(x+1, y+0.01) )
             else:
                 self.callback_pipe.send( ["Seller", ind] )
                 sell = self.callback_pipe.recv()
-                self.ax_array.text(x+1, y+0.01, repr(sell), size=20, bbox=dict(boxstyle="round"))
+                self.ax_array.text(x+1, y+0.01, repr(sell), size=20,
+                            backgroundcolor='cyan', bbox=dict(boxstyle="round"))
 
 
         def on_key(event):
@@ -125,12 +129,24 @@ class Animator():
             if event.key == " ":
                 self.toggle_pause()
 
+            if event.key == "c":
+                if len(self.data) == 3:
+                    self.update_map(self.data)
+                else:
+                    self.update_line(self.data)
+
+        def stop_sim(event):
+            self.callback_pipe.send("Stop")
+            logging.debug("Stopping animator")
+            sys.exit()
+
         self.fig.canvas.mpl_connect('key_press_event', on_key)
         self.fig.canvas.mpl_connect('pick_event', onpick)
+        self.fig.canvas.mpl_connect('close_event', stop_sim)
 
         anim = animation.FuncAnimation(self.fig, self.update)
         figManager = plt.get_current_fig_manager()
         figManager.window.showMaximized()
         plt.show()
 
-        self.callback_pipe.send("Pause")
+        #self.callback_pipe.send("Pause")

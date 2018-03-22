@@ -28,6 +28,7 @@ class Watcher():
     def __init__(self):
         self.reset()
         self.mean_quality_list = []
+        self.sup_no_sales = {}
 
     def reset(self):
         self.reset_sales()
@@ -62,6 +63,12 @@ class Watcher():
     def inform_oos(self):
         self.out_of_stock += 1
 
+    def inform_no_sup_sales(self, sup_id):
+        if sup_id in self.sup_no_sales:
+            self.sup_no_sales[sup_id] += 1
+        else:
+            self.sup_no_sales[sup_id] = 1
+
     def get_top(self):
         v = list(self.choice_tally.values())
         k = list(self.choice_tally.keys())
@@ -81,14 +88,21 @@ class Simulation():
         self.cost = cost    # Default cost of medicine (before markup)
         self.watcher = Watcher() # For keeping track of mean quality and such
 
-        self.suppliers = [Supplier(k) for k in range(nk)]
+        self.suppliers = [Supplier(k, self.watcher) for k in range(nk)]
+        self.last_supp = nk # Used to create unique ids for new suppleirs
 
         #ratio = np.floor(self.ni/self.nj)
         self.sellers = [Seller(j, self.nk, self.watcher) for j in range(nj)]
+        self.last_sell = nj
 
         self.patients = [Patient(i, self.nj, self.watcher) for i in range(ni)]
+        self.last_pat = ni
 
         self.set_positions_line()
+        if self.sellers[0].cash > 0:    # We have chosen to give sellers some
+            for seller in self.sellers: # initial cash to buy medicine
+                seller.choose_best(self.suppliers)
+
 
     def __str__(self):
         suppliers   = "\n".join([str(s) for s in self.suppliers])
@@ -195,7 +209,10 @@ def wait_for_input(sim, connection):
 
         if request == "Pause":
             pause = False
-            break
+        elif request == "Stop":
+            global stop
+            stop = True
+            break;
         else:
             actor, ind = request
             if actor == "Supplier":
@@ -203,10 +220,11 @@ def wait_for_input(sim, connection):
             else:
                 connection.send(sim.sellers[ind])
 
-def run_sim():
+def run_sim(num_trials):
 
-    sim = Simulation(200, 20, 2)
-    #sim = Simulation()
+    #sim = Simulation(200, 20, 2)
+    sim = Simulation()
+    global stop
 
     x = [seller.position[0] for seller in sim.sellers]
     y = [seller.position[1] for seller in sim.sellers]
@@ -224,11 +242,15 @@ def run_sim():
     animator_proc.start()
 
 
-    for i in range(10):
+    for i in range(num_trials):
         if (mine.poll()):
             request = mine.recv()
             if request == "Pause":
                 wait_for_input(sim, mine)
+            elif request == "Stop":
+                global stop
+                stop = True
+                return # This stops everything
             else:
                 actor, ind = request
                 if actor == "Supplier":
@@ -236,8 +258,8 @@ def run_sim():
                 else:
                     mine.send([sim.sellers[ind]])
 
-
-
+            if stop:
+                return
 
 
         #debug("First Seller Quality: {}".format(sim.sellers[0].quality))
@@ -251,9 +273,9 @@ def run_sim():
         supx = [supplier.position[0] for supplier in sim.suppliers]
         supq = [supplier.quality for supplier in sim.suppliers]
         #plot_queue.put( (x, y, q) )
-        plot_queue.put( (x, q, supx, supq) )
 
         if (i % 10 == 0):
+            plot_queue.put( (x, q, supx, supq) )
             print("Mean Quality: {}".format(sim.watcher.get_mean_qual()))
             quals = [s.quality for s in sim.sellers]
             top = np.argmax(quals)
@@ -262,15 +284,27 @@ def run_sim():
             print("Top seller: {}, picked {} times".format(top, n))
             print("Corresp Quality: {}".format(sim.sellers[top].quality))
             print("Number failed sales: {}".format(sim.watcher.out_of_stock))
+            max_cash = max([sell.cash for sell in sim.sellers])
+            print("Maximum cash on sellers: {}".format(max_cash))
+            print(sim.watcher.sup_no_sales)
             print("")
         sim.watcher.reset()
 
-    plot_queue.put("STOP")
+    debug("Simulation was {} ahead of animation".format(plot_queue.qsize()))
+    while not plot_queue.empty():
+        time.sleep(0.05)
+
+    plot_queue.put("Stop")
     wait_for_input(sim, mine)
     animator_proc.join()
 
 def main():
-    run_sim()
+    #num_trials = 10
+    num_trials = 1000
+
+    global stop
+    stop  = False
+    run_sim(num_trials)
     #sim = Simulation(200, 20, 2)
     #print(sim)
 

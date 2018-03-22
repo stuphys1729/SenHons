@@ -67,22 +67,24 @@ class Actor():
                                                         2*math.log(self.N)/n )
             else:
                 ucb = 1.0 # avoiding division by 0
-            total = ucb + dist_cont - actor_list[i].price
+            #       trust - distance - price
+            total = ucb - dist_cont - actor_list[i].price
             choices.append(total)
         self.N += 1
 
         consider = min(Actor.top_n, len(actor_list))
-        top_n = np.argpartition(choices, range(consider))[:consider]
+        top_n = np.argpartition(choices, range(len(choices)-consider,
+                                    len(choices)))[len(choices)-consider:]
         #debug(top_n)
-        self.watcher.inform_choice(top_n[0])
+        self.watcher.inform_choice(top_n[-1])
         best = None
-        for dep in top_n:
+        for dep in reversed(top_n):
             if actor_list[dep].supply >= self.min_purchase:
                 best = dep
                 break
             else:
                 self.watcher.inform_oos()
-        t = type(actor_list[0])
+        t = actor_list[0].__class__.__name__
         if best == None:
             for dep in top_n:
                 debug("{} number {} has supply {}".format(t, dep,
@@ -135,12 +137,12 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, uid, nk, watcher=None, init_supply=15, position=(0,0)):
+    def __init__(self, uid, nk, watcher=None, init_supply=0, init_cash=20, position=(0,0)):
         super().__init__(position, uid, nk, watcher)
 
         # Initial stock and cash
         self.supply = init_supply
-        self.cash   = 1 + random()
+        self.cash   = init_cash + random()
 
         self.min_purchase = 10 # Overwrites '1' from parent class
 
@@ -190,7 +192,11 @@ class Seller(Actor):
             return result
         else: # We ran out of money
             # not sure what to do here?
+            self.generate_new_strategy()
             return 0
+
+    def generate_new_strategy(self):
+        pass
 
 
     def test_supply(self, quality): # same as patient for now
@@ -200,11 +206,11 @@ class Seller(Actor):
 class Supplier(Actor):
     """ This is the class to model a wholesaler """
 
-    def __init__(self, uid, position=(0,0)):
-        super().__init__(position, uid)
+    def __init__(self, uid, watcher, position=(0,0)):
+        super().__init__(position, uid, 0, watcher)
 
         # Initial inventory and cash
-        self.supply = 150
+        self.supply = 300
         self.cash   = 10 + random()
 
         # Start with random quality
@@ -212,7 +218,7 @@ class Supplier(Actor):
         self.strat  = self.quality
 
         # Initial cost random
-        self.price = 1 + random() # Could be dependent on quality?
+        self.price = 0.5 + random() # Could be dependent on quality?
         # self.cost = self.quality + random()  ?
 
         return
@@ -241,13 +247,16 @@ class Supplier(Actor):
 
 
     def make_meds(self):
+        self.cash -= 2 # Running costs
         if self.cash > 1:
             amount = np.floor(self.cash)
             qual = self.supply*self.quality + amount*self.strat
             self.quality = qual / (self.supply + amount)
             self.supply += amount
 
-        #else:
+        else:
+            #debug("Supplier {} ran out of cash".format(self.id))
+            self.watcher.inform_no_sup_sales(self.id)
             #self.generate_new_strategy()
 
         # Either way, self.cash is now between 0 and 1
