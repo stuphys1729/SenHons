@@ -248,15 +248,19 @@ def run_sim(num_trials, env_file=None):
     sim = Simulation(1000, 100, 10, env_file)
     global stop
 
-    x = [seller.position[0] for seller in sim.sellers]
-    y = [seller.position[1] for seller in sim.sellers]
-    q = [seller.quality for seller in sim.sellers]
-    supx = [supplier.position[0] for supplier in sim.suppliers]
-    supq = [supplier.quality for supplier in sim.suppliers]
+    x       = [seller.position[0] for seller in sim.sellers]
+    y       = [seller.position[1] for seller in sim.sellers]
+    q       = [seller.quality for seller in sim.sellers]
+    supx    = [supplier.position[0] for supplier in sim.suppliers]
+    supy    = [supplier.position[1] for supplier in sim.suppliers]
+    supq    = [supplier.quality for supplier in sim.suppliers]
+    towns   = []
+    if sim.environment:
+        towns = sim.environment.towns
 
     plot_queue = Queue()
     mine, theirs = Pipe()
-    plot_queue.put( (x, y, q) )
+    plot_queue.put( (x, y, q, supx, supy, supq, towns) )
     #plot_queue.put( (x, q, supx, supq) )
     animator = Animator(plot_queue, theirs)
 
@@ -290,13 +294,14 @@ def run_sim(num_trials, env_file=None):
         sim.time_step_sto()
 
         if (i % 10 == 0):
-            x = [seller.position[0] for seller in sim.sellers]
-            y = [seller.position[1] for seller in sim.sellers]
-            q = [seller.quality for seller in sim.sellers]
-            supx = [supplier.position[0] for supplier in sim.suppliers]
-            supq = [supplier.quality for supplier in sim.suppliers]
+            x       = [seller.position[0] for seller in sim.sellers]
+            y       = [seller.position[1] for seller in sim.sellers]
+            q       = [seller.quality for seller in sim.sellers]
+            supx    = [supplier.position[0] for supplier in sim.suppliers]
+            supy    = [supplier.position[1] for supplier in sim.suppliers]
+            supq    = [supplier.quality for supplier in sim.suppliers]
 
-            plot_queue.put( (x, y, q) )
+            plot_queue.put( (x, y, q, supx, supy, supq) )
             #plot_queue.put( (x, q, supx, supq) )
             print("Mean Quality: {}".format(sim.watcher.get_mean_qual()))
             quals = [s.quality for s in sim.sellers]

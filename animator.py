@@ -4,6 +4,7 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.lines import Line2D
+from matplotlib.patches import Ellipse
 import logging
 from pprint import pprint
 
@@ -22,21 +23,39 @@ class Animator():
         self.pause = False
 
         data = plot_queue.get()
-        if len(data) == 3:
+        if len(data) == 7:
             self.init_map(data)
         elif len(data) == 4:
             self.init_line(data)
 
     def init_map(self, data):
+        logging.debug("Initialising Map")
         x = data[0]
         y = data[1]
         qual = data[2]
+        supx = data[3]
+        supy = data[4]
+        supq = data[5]
+        self.towns = data[6]
+        patches = []
 
-        plt.scatter(x, y, c=qual, s=200, cmap='YlGn')
+        plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", picker=5)
+        plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", cmap='YlGn', marker='X', picker=5)
+        self.max_x = max( [ t.x + 5*t.sigmax for t in self.towns] )
+        self.max_y = max( [ t.y + 5*t.sigmay for t in self.towns] )
+
+        for town in self.towns:
+            patches.append( Ellipse( (town.x,town.y), 2*town.sigmax, 2*town.sigmay, fill=False, color='r' ) )
+            patches.append( Ellipse( (town.x,town.y), 4*town.sigmax, 4*town.sigmay, fill=False, color='r' ) )
+            patches.append( Ellipse( (town.x,town.y), 6*town.sigmax, 6*town.sigmay, fill=False, color='r' ) )
+
+        for patch in patches:
+            self.ax_array.add_artist(patch)
         #plt.gray()
         #plt.ylim( (-5,5 )
 
     def init_line(self, data):
+        self.data = data
         x = data[0]
         qual = data[1]
         supx = data[2]
@@ -52,13 +71,34 @@ class Animator():
         return
 
     def update_map(self, data):
+        logging.debug("Updating Map")
+        self.data = data
         x = data[0]
         y = data[1]
         qual = data[2]
-        plt.clf()
+        supx = data[3]
+        supy = data[4]
+        supq = data[5]
+        plt.cla()
+        self.ax_array.set_xlim(0, self.max_x)
+        self.ax_array.set_ylim(0, self.max_y)
         #plt.gray()
 
-        plt.scatter(x, y, c=qual, s=200, cmap='YlGn')
+        scatters = []
+        scatters.append(plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", picker=5) )
+        scatters.append(plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", picker=5, cmap='YlGn', marker='X') )
+
+        patches = []
+        for town in self.towns:
+            patches.append( Ellipse( (town.x,town.y), 2*town.sigmax, 2*town.sigmay, fill=False, color='r' ) )
+            patches.append( Ellipse( (town.x,town.y), 4*town.sigmax, 4*town.sigmay, fill=False, color='r' ) )
+            patches.append( Ellipse( (town.x,town.y), 6*town.sigmax, 6*town.sigmay, fill=False, color='r' ) )
+
+        for patch in patches:
+            self.ax_array.add_artist(patch)
+
+        return patches + scatters
+
 
     def update_line(self, data):
         self.data = data
@@ -84,10 +124,10 @@ class Animator():
             #print(data)
             if data == "Stop":
                 self.pause = True
-            elif len(data) == 3:
-                self.update_map()
+            elif len(data) == 6:
+                return self.update_map(data)
             elif len(data) == 4:
-                self.update_line(data)
+                return self.update_line(data)
             else:
                 sys.exit("Something went wrong")
 
@@ -132,7 +172,7 @@ class Animator():
                 self.toggle_pause()
 
             if event.key == "c":
-                if len(self.data) == 3:
+                if len(self.data) == 6:
                     self.update_map(self.data)
                 else:
                     self.update_line(self.data)

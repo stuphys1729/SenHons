@@ -23,7 +23,7 @@ class Environment():
                     continue
 
                 self.towns.append( Town(data[0], int(data[1]), float(data[2]),
-                    float(data[3]), float(data[4]), float(data[4])) )
+                    float(data[3]), float(data[4]), float(data[5])) )
 
                 total += int(data[1])
 
