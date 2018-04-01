@@ -1,7 +1,6 @@
 import numpy as np
 import math
-from random import gauss
-from random import random as rand
+from random import gauss, random as rand
 from logging import basicConfig, debug, DEBUG
 
 basicConfig(level=DEBUG,
