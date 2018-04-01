@@ -1,11 +1,78 @@
 import numpy as np
 import math
-from random import random
+from random import gauss
+from random import random as rand
 from logging import basicConfig, debug, DEBUG
 
 basicConfig(level=DEBUG,
             format='(%(threadName)-10s) %(message)s',
             )
+
+class Environment():
+    """ This class models the total environment of the simulaion. For now it
+        only contains towns but this could be extended
+    """
+
+    def __init__(self, config_file):
+
+        self.towns = []
+        total = 0
+        with open(config_file, 'r') as f:
+            for line in f:
+                data = line.split(" ")
+                if data[0] == '#' or data[0] == '#\n':
+                    continue
+
+                self.towns.append( Town(data[0], int(data[1]), float(data[2]),
+                    float(data[3]), float(data[4]), float(data[4])) )
+
+                total += int(data[1])
+
+        self.prob_dist = []
+        self.system_size = [0., 0.]
+        for town in self.towns:
+            norm = town.size/total
+            self.prob_dist.append(norm)
+
+            xmax = town.x + 5*town.sigmax # probabilistic maximum
+            if (xmax > self.system_size[0]):
+                self.system_size[0] = xmax
+            ymax = town.y + 5*town.sigmay
+            if (ymax > self.system_size[1]):
+                self.system_size[1] = ymax
+
+
+
+
+    def get_position(self):
+        # Choose a town to draw from
+        town = np.random.choice(self.towns, p=self.prob_dist)
+        # Get a new position from it
+        return town.get_position()
+
+
+class Town():
+    """ This class models a town in the simulation """
+
+    def __init__(self, name, size, x, y, sigmax, sigmay):
+
+        self.name   = name
+        self.size   = size
+        self.x      = x
+        self.y      = y
+        self.sigmax = sigmax
+        self.sigmay = sigmay
+
+    def __str__(self):
+
+        return( "Name: {0} | Size: {1:02d} | Position: ({2:6.02f},{3:6.02f}) | Variance: ({4:4.02f},{5:4.02f})".format(
+            self.name, self.size, self.x, self.y, self.sigmax, self.sigmay) )
+
+    def get_position(self):
+         return ( gauss(self.x, self.sigmax),
+                    gauss(self.y, self.sigmay) )
+
+
 
 
 class Actor():
@@ -35,15 +102,29 @@ class Actor():
         """
         # TODO: make this 2d
 
-        this = self.position[0]
-        that = position[0]
+        if type(system_size) is int: # 1D case
+            this = self.position[0]
+            that = position[0]
 
-        raw_dist = abs(this-that)
-        if (system_size == None): return raw_dist
-        elif (raw_dist > system_size/2):
-            return system_size - raw_dist
+            raw_dist = abs(this-that)
+
+            if (raw_dist > system_size/2):
+                return system_size - raw_dist
+            else:
+                return raw_dist
+
+        elif type(system_size) is list: # 2D case
+            x_dist = abs(self.position[0] - position[0])
+            y_dist = abs(self.position[1] - position[1])
+
+            if x_dist > system_size[0]/2:
+                x_dist = system_size[0] - x_dist
+            if y_dist > system_size[1]/2:
+                y_dist = system_size[1] - y_dist
+
+            return np.sqrt( x_dist**2 + y_dist**2 )
         else:
-            return raw_dist
+            debug(system_size)
 
     def make_dist_array(self, dependencies, system_size):
 
@@ -129,7 +210,7 @@ class Patient(Actor):
     def take(self, medicine):
         """ This can be extended for more medicine types """
         # TODO: Add in placebo effect
-        return (medicine - random()) > 0
+        return (medicine - rand()) > 0
 
 
 class Seller(Actor):
@@ -142,15 +223,15 @@ class Seller(Actor):
 
         # Initial stock and cash
         self.supply = init_supply
-        self.cash   = init_cash + random()
+        self.cash   = init_cash + rand()
 
         self.min_purchase = 10 # Overwrites '1' from parent class
 
         # Initial price and quality are random
-        self.price      = random() + 1
-        self.strategy   = random()  # He uses this as a multiplier for the trust
+        self.price      = rand() + 1
+        self.strategy   = rand()  # He uses this as a multiplier for the trust
                                     # metric, not sure if I need it.
-        self.quality    = random()
+        self.quality    = rand()
 
         return
 
@@ -164,7 +245,7 @@ class Seller(Actor):
 
     def out_of_stock(self):
         debug("Seller increased their price")
-        self.price += Actor.epsilon*random()
+        self.price += Actor.epsilon*rand()
 
     def make_purchase(self):
         #debug("Seller selling 1, supply: {} before" .format(self.supply))
@@ -200,7 +281,7 @@ class Seller(Actor):
 
 
     def test_supply(self, quality): # same as patient for now
-        return (quality - random()) > 0
+        return (quality - rand()) > 0
 
 
 class Supplier(Actor):
@@ -211,15 +292,15 @@ class Supplier(Actor):
 
         # Initial inventory and cash
         self.supply = 300
-        self.cash   = 10 + random()
+        self.cash   = 10 + rand()
 
         # Start with random quality
-        self.quality = random()
+        self.quality = rand()
         self.strat  = self.quality
 
         # Initial cost random
-        self.price = 0.5 + random() # Could be dependent on quality?
-        # self.cost = self.quality + random()  ?
+        self.price = 0.5 + rand() # Could be dependent on quality?
+        # self.cost = self.quality + rand()  ?
 
         return
 
@@ -234,7 +315,7 @@ class Supplier(Actor):
 
     def out_of_stock(self):
         debug("Supplier increased their price")
-        self.price += Actor.epsilon*random()
+        self.price += Actor.epsilon*rand()
 
     def make_purchase(self, amount):
         #debug("Supplier selling {}, supply: {} before".format(
@@ -262,6 +343,6 @@ class Supplier(Actor):
         # Either way, self.cash is now between 0 and 1
 
     def generate_new_strategy(self):
-        self.strat = abs(min((self.strat + Actor.epsilon*(random()-0.5)), 1.0))
-        self.price = random() + 1 # depend on quality?
+        self.strat = abs(min((self.strat + Actor.epsilon*(rand()-0.5)), 1.0))
+        self.price = rand() + 1 # depend on quality?
         return

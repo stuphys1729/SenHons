@@ -4,7 +4,8 @@ This file runs a simulation of the evolution of trust in medicine.
 The model consists of Patients, who go to Sellers to purchase medicine of an
 unknown quality, and either get better or they do not (depending on medicine
 quality and the placebo effect) and update their trust in that seller
-accordingly. The Sellers themselves purchase their medicine from Suppliers.
+accordingly. The Sellers themselves purchase their medicine from Suppliers, and
+also develop trust in the same way.
 """
 from random import random, shuffle
 import numpy as np
@@ -79,7 +80,7 @@ class Simulation():
     This is the class to hold the simulation parameters
     """
 
-    def __init__(self, ni=1000, nj=100, nk=10, cost=1.0):
+    def __init__(self, ni=1000, nj=100, nk=10, env_file=None, cost=1.0):
 
         self.epsilon = 0.1 # Not sure what this is for
         self.ni = ni    # Number of patients
@@ -98,7 +99,12 @@ class Simulation():
         self.patients = [Patient(i, self.nj, self.watcher) for i in range(ni)]
         self.last_pat = ni
 
-        self.set_positions_line()
+        if env_file:
+            self.environment = Environment(env_file)
+            self.set_positions(self.environment)
+        else:
+            self.set_positions()
+
         if self.sellers[0].cash > 0:    # We have chosen to give sellers some
             for seller in self.sellers: # initial cash to buy medicine
                 seller.choose_best(self.suppliers)
@@ -113,32 +119,48 @@ class Simulation():
         return suppliers + sep + sellers + sep + patients
 
 
-    def set_positions_line(self):
+    def set_positions(self, environment=None):
 
-        ratio = 1.0
-        pos = 0.0
-        for patient in self.patients:
-            patient.position = (pos+random(), random())
-            pos += ratio
-        self.system_size = pos
-        debug("System size: " + str(self.system_size))
-        debug("Pos of last patient: {}".format(pos-ratio))
+        if environment == None:
+            # If there is no environemt, we just space the actor out along a line
+            ratio = 1.0
+            pos = 0.0
+            for patient in self.patients:
+                patient.position = (pos+random(), random())
+                pos += ratio
+            self.system_size = pos
+            debug("System size: " + str(self.system_size))
+            debug("Pos of last patient: {}".format(pos-ratio))
 
-        ratio = np.floor(self.ni/self.nj)
-        debug("Ratio of Patients to Sellers: {}".format(ratio))
-        pos = 0.0
-        for seller in self.sellers:
-            seller.position = (pos+random(), random())
-            pos += ratio
-        debug("Pos of last Seller: {}".format(pos-ratio))
+            ratio = np.floor(self.ni/self.nj)
+            debug("Ratio of Patients to Sellers: {}".format(ratio))
+            pos = 0.0
+            for seller in self.sellers:
+                seller.position = (pos+random(), random())
+                pos += ratio
+            debug("Pos of last Seller: {}".format(pos-ratio))
 
-        ratio = np.floor(self.ni/self.nk)
-        debug("Ratio of Patients to Suppliers: {}".format(ratio))
-        pos = 0.0
-        for supplier in self.suppliers:
-            supplier.position = (pos+random(), random())
-            pos += ratio
-        debug("Pos of last Supplier: {}\n".format(pos-ratio))
+            ratio = np.floor(self.ni/self.nk)
+            debug("Ratio of Patients to Suppliers: {}".format(ratio))
+            pos = 0.0
+            for supplier in self.suppliers:
+                supplier.position = (pos+random(), random())
+                pos += ratio
+            debug("Pos of last Supplier: {}\n".format(pos-ratio))
+
+        else: # We have a set of towns to get our positions from
+            self.system_size = environment.system_size
+            debug("System size: " + str(self.system_size))
+
+            for patient in self.patients:
+                patient.position = environment.get_position()
+
+            for seller in self.sellers:
+                seller.position = environment.get_position()
+
+            for supplier in self.suppliers:
+                supplier.position = environment.get_position()
+
 
         for patient in self.patients:
             patient.make_dist_array(self.sellers, self.system_size)
@@ -220,10 +242,10 @@ def wait_for_input(sim, connection):
             else:
                 connection.send(sim.sellers[ind])
 
-def run_sim(num_trials):
+def run_sim(num_trials, env_file=None):
 
     #sim = Simulation(200, 20, 2)
-    sim = Simulation()
+    sim = Simulation(1000, 100, 10, env_file)
     global stop
 
     x = [seller.position[0] for seller in sim.sellers]
@@ -234,8 +256,8 @@ def run_sim(num_trials):
 
     plot_queue = Queue()
     mine, theirs = Pipe()
-    #plot_queue.put( (x, y, q) )
-    plot_queue.put( (x, q, supx, supq) )
+    plot_queue.put( (x, y, q) )
+    #plot_queue.put( (x, q, supx, supq) )
     animator = Animator(plot_queue, theirs)
 
     animator_proc = Process(target=animator.animate)
@@ -267,15 +289,15 @@ def run_sim(num_trials):
         #sim.time_step_sweep()
         sim.time_step_sto()
 
-        x = [seller.position[0] for seller in sim.sellers]
-        y = [seller.position[1] for seller in sim.sellers]
-        q = [seller.quality for seller in sim.sellers]
-        supx = [supplier.position[0] for supplier in sim.suppliers]
-        supq = [supplier.quality for supplier in sim.suppliers]
-        #plot_queue.put( (x, y, q) )
-
         if (i % 10 == 0):
-            plot_queue.put( (x, q, supx, supq) )
+            x = [seller.position[0] for seller in sim.sellers]
+            y = [seller.position[1] for seller in sim.sellers]
+            q = [seller.quality for seller in sim.sellers]
+            supx = [supplier.position[0] for supplier in sim.suppliers]
+            supq = [supplier.quality for supplier in sim.suppliers]
+
+            plot_queue.put( (x, y, q) )
+            #plot_queue.put( (x, q, supx, supq) )
             print("Mean Quality: {}".format(sim.watcher.get_mean_qual()))
             quals = [s.quality for s in sim.sellers]
             top = np.argmax(quals)
@@ -287,7 +309,7 @@ def run_sim(num_trials):
             max_cash = max([sell.cash for sell in sim.sellers])
             print("Maximum cash on sellers: {}".format(max_cash))
             print(sim.watcher.sup_no_sales)
-            print("")
+            print("-" * 80)
         sim.watcher.reset()
 
     debug("Simulation was {} ahead of animation".format(plot_queue.qsize()))
@@ -304,7 +326,8 @@ def main():
 
     global stop
     stop  = False
-    run_sim(num_trials)
+    env = Environment("trust.config")
+    run_sim(num_trials, 'trust.config')
     #sim = Simulation(200, 20, 2)
     #print(sim)
 
