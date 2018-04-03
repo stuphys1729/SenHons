@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Process, Queue, Pipe
 from logging import basicConfig, debug, DEBUG
 import time
+import copy
 
 from actors import *
 from animator import Animator
@@ -21,59 +22,6 @@ basicConfig(level=DEBUG,
             format='(%(threadName)-10s) %(message)s',
             )
 
-class Watcher():
-    """
-    This class handles the clairvoyance of the system, watching all sales
-    """
-
-    def __init__(self):
-        self.reset()
-        self.mean_quality_list = []
-        self.sup_no_sales = {}
-
-    def reset(self):
-        self.reset_sales()
-        self.reset_stock()
-        self.reset_choices()
-
-    def reset_sales(self):
-        self.num_purchases = 0
-        self.mean_quality = 0.
-
-    def reset_choices(self):
-        self.choice_tally = {}
-
-    def reset_stock(self):
-        self.out_of_stock = 0
-
-    def get_mean_qual(self):
-        self.mean_quality_list.append(self.mean_quality)
-        return self.mean_quality
-
-    def inform_sale(self, seller):
-        self.mean_quality = (self.mean_quality*self.num_purchases +
-                                seller.quality) / (self.num_purchases+1)
-        self.num_purchases += 1
-
-    def inform_choice(self, index):
-        if index in self.choice_tally:
-            self.choice_tally[index] += 1
-        else:
-            self.choice_tally[index] = 1
-
-    def inform_oos(self):
-        self.out_of_stock += 1
-
-    def inform_no_sup_sales(self, sup_id):
-        if sup_id in self.sup_no_sales:
-            self.sup_no_sales[sup_id] += 1
-        else:
-            self.sup_no_sales[sup_id] = 1
-
-    def get_top(self):
-        v = list(self.choice_tally.values())
-        k = list(self.choice_tally.keys())
-        return k[v.index(max(v))], max(v)
 
 class Simulation():
     """
@@ -83,24 +31,29 @@ class Simulation():
     def __init__(self, ni=1000, nj=100, nk=10, env_file=None, cost=1.0):
 
         self.epsilon = 0.1 # Not sure what this is for
-        self.ni = ni    # Number of patients
-        self.nj = nj    # Number of sellers
-        self.nk = nk    # Number of wholesalers
+        self.ni = ni    # Initial number of patients
+        self.nj = nj    # Initial number of sellers
+        self.nk = nk    # Initial number of wholesalers
         self.cost = cost    # Default cost of medicine (before markup)
         self.watcher = Watcher() # For keeping track of mean quality and such
 
-        self.suppliers = [Supplier(k, self.watcher) for k in range(nk)]
+        if env_file:
+            self.environment = Environment(env_file)
+            self.system_size = self.environment.system_size
+        else:
+            self.system_size = ni # 1D
+
+        self.suppliers = [Supplier(k, self.system_size, self.watcher) for k in range(nk)]
         self.last_supp = nk # Used to create unique ids for new suppleirs
 
         #ratio = np.floor(self.ni/self.nj)
-        self.sellers = [Seller(j, self.nk, self.watcher) for j in range(nj)]
+        self.sellers = [Seller(j, self.system_size, self.watcher) for j in range(nj)]
         self.last_sell = nj
 
-        self.patients = [Patient(i, self.nj, self.watcher) for i in range(ni)]
+        self.patients = [Patient(i, self.system_size, self.watcher) for i in range(ni)]
         self.last_pat = ni
 
         if env_file:
-            self.environment = Environment(env_file)
             self.set_positions(self.environment)
         else:
             self.set_positions()
@@ -128,7 +81,6 @@ class Simulation():
             for patient in self.patients:
                 patient.position = (pos+random(), random())
                 pos += ratio
-            self.system_size = pos
             debug("System size: " + str(self.system_size))
             debug("Pos of last patient: {}".format(pos-ratio))
 
@@ -149,7 +101,6 @@ class Simulation():
             debug("Pos of last Supplier: {}\n".format(pos-ratio))
 
         else: # We have a set of towns to get our positions from
-            self.system_size = environment.system_size
             debug("System size: " + str(self.system_size))
 
             for patient in self.patients:
@@ -163,12 +114,16 @@ class Simulation():
 
 
         for patient in self.patients:
-            patient.make_dist_array(self.sellers, self.system_size)
+            patient.make_dist_array(self.sellers)
 
         for seller in self.sellers:
-            seller.make_dist_array(self.suppliers, self.system_size)
+            debug("seller id: {}".format(seller.uid))
+            seller.make_dist_array(self.suppliers)
 
-    def intialise_dist_arrays(self):
+        for supplier in self.suppliers:
+            debug("Supplier id: {}".format(supplier.uid))
+
+    def initialise_dist_arrays(self):
 
         seller_pos = [self.sellers[i].position for i in range(self.nj)]
         supplier_pos = [self.suppliers[i].position for i in range(self.nk)]
@@ -211,14 +166,41 @@ class Simulation():
         for i in range(n):
             self.patients[samples[i]].choose_best(self.sellers)
 
-        for seller in self.sellers:
+        to_remove = []
+        for i in range(len(self.sellers)):
+            seller = self.sellers[i]
             # Each seller chooses their current best supplier
-            seller.choose_best(self.suppliers)
+            function = seller.choose_best(self.suppliers)
             # This also handles the sale and quality test
 
+            if function: # The seller wants to do something
+                if function == "New": # Set up new premices
+                    position = self.environment.get_position()
+                    new_seller = seller.make_new(self.last_sell, position)
+                    new_seller.make_dist_array(self.suppliers)
+                    self.sellers.append(new_seller)
+                    self.last_sell += 1 # Set the id for the next seller
+
+                if function == "End": # This seller has gone bust
+                    to_remove.append(i) # Remove it after iterating through the rest
+
+        for i in sorted(to_remove, reverse=True):
+            del self.sellers[i]
+
+        to_remove = []
         for supplier in self.suppliers:
             # Supplier makes 'stuff' based on current strategy
-            supplier.make_meds()
+            function = supplier.make_meds()
+
+            if function: # The supplier wants us to do something
+                if function == "New":
+                    position = self.environment.get_position()
+                    new_supplier = supplier.make_new(self.last_supp, position)
+                    self.suppliers.append(new_supplier)
+                    self.last_supp += 1
+
+                if function == "End": # This seller has gone bust
+                    to_remove.append(i) # Remove it after iterating through the rest
 
 
 def wait_for_input(sim, connection):
