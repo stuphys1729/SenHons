@@ -117,11 +117,11 @@ class Simulation():
             patient.make_dist_array(self.sellers)
 
         for seller in self.sellers:
-            debug("seller id: {}".format(seller.uid))
+            #debug("seller id: {}".format(seller.uid))
             seller.make_dist_array(self.suppliers)
 
-        for supplier in self.suppliers:
-            debug("Supplier id: {}".format(supplier.uid))
+        #for supplier in self.suppliers:
+            #debug("Supplier id: {}".format(supplier.uid))
 
     def initialise_dist_arrays(self):
 
@@ -180,15 +180,19 @@ class Simulation():
                     new_seller.make_dist_array(self.suppliers)
                     self.sellers.append(new_seller)
                     self.last_sell += 1 # Set the id for the next seller
+                    debug(str(seller))
+                    debug("Making new seller: " + str(new_seller))
 
                 if function == "End": # This seller has gone bust
                     to_remove.append(i) # Remove it after iterating through the rest
+                    debug(str(seller) + " has gone bust")
 
         for i in sorted(to_remove, reverse=True):
             del self.sellers[i]
 
         to_remove = []
-        for supplier in self.suppliers:
+        for i in range(len(self.suppliers)):
+            supplier = self.suppliers[i]
             # Supplier makes 'stuff' based on current strategy
             function = supplier.make_meds()
 
@@ -198,9 +202,15 @@ class Simulation():
                     new_supplier = supplier.make_new(self.last_supp, position)
                     self.suppliers.append(new_supplier)
                     self.last_supp += 1
+                    debug(str(supplier))
+                    debug("Making new supplier: " + str(new_supplier))
 
                 if function == "End": # This seller has gone bust
                     to_remove.append(i) # Remove it after iterating through the rest
+                    debug(str(supplier) + " has gone bust")
+
+        for i in sorted(to_remove, reverse=True):
+            del self.suppliers[i]
 
 
 def wait_for_input(sim, connection):
@@ -226,8 +236,8 @@ def wait_for_input(sim, connection):
 
 def run_sim(num_trials, env_file=None):
 
-    #sim = Simulation(200, 20, 2)
-    sim = Simulation(1000, 100, 10, env_file)
+    sim = Simulation(100, 20, 2, env_file)
+    #sim = Simulation(1000, 100, 10, env_file)
     global stop
 
     x       = [seller.position[0] for seller in sim.sellers]
@@ -291,7 +301,7 @@ def run_sim(num_trials, env_file=None):
             print("Top Quality:  {} from {}".format(quals[top], top))
             top, n = sim.watcher.get_top()
             print("Top seller: {}, picked {} times".format(top, n))
-            print("Corresp Quality: {}".format(sim.sellers[top].quality))
+            #print("Corresp Quality: {}".format(sim.sellers[top].quality))
             print("Number failed sales: {}".format(sim.watcher.out_of_stock))
             max_cash = max([sell.cash for sell in sim.sellers])
             print("Maximum cash on sellers: {}".format(max_cash))
@@ -308,7 +318,7 @@ def run_sim(num_trials, env_file=None):
     animator_proc.join()
 
 def main():
-    #num_trials = 10
+    #num_trials = 21
     num_trials = 1000
 
     global stop
