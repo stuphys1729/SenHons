@@ -99,9 +99,8 @@ class Actor():
         the straight-line distance is greater than half the system size, the
         periodic boundary means that the actors are actually closer.
         """
-        # TODO: make this 2d
 
-        if type(system_size) is int: # 1D case
+        if type(system_size) is float: # 1D case
             this = self.position[0]
             that = position[0]
 
