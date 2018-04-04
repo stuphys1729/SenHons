@@ -424,7 +424,7 @@ class Supplier(Actor):
 
 
     def make_meds(self):
-        self.cash -= 2 # Running costs
+        self.cash -= 4 # Running costs
         if self.cash > 1:
             self.num_out = 0
             amount = np.floor(self.cash)

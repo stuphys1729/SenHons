@@ -236,7 +236,7 @@ def wait_for_input(sim, connection):
 
 def run_sim(num_trials, env_file=None):
 
-    sim = Simulation(100, 20, 2, env_file)
+    sim = Simulation(100, 20, 5, env_file)
     #sim = Simulation(1000, 100, 10, env_file)
     global stop
 
@@ -305,7 +305,7 @@ def run_sim(num_trials, env_file=None):
             print("Number failed sales: {}".format(sim.watcher.out_of_stock))
             max_cash = max([sell.cash for sell in sim.sellers])
             print("Maximum cash on sellers: {}".format(max_cash))
-            print(sim.watcher.sup_no_sales)
+            #print(sim.watcher.sup_no_sales)
             print("-" * 80)
         sim.watcher.reset()
 
@@ -319,7 +319,7 @@ def run_sim(num_trials, env_file=None):
 
 def main():
     #num_trials = 21
-    num_trials = 1000
+    num_trials = 400
 
     global stop
     stop  = False
