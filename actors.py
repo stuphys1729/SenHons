@@ -136,6 +136,7 @@ class Actor():
     explore_parameter = 0.5
     top_n = 20
     epsilon = 0.1
+    bust_number = 20
 
     def __init__(self, position, uid, system_size, watcher=None):
         self.watcher        = watcher
@@ -197,6 +198,7 @@ class Actor():
 
     def choose_best(self, actor_list):
         """ UCB formula to decide best actor to buy from """
+        assert len(actor_list) > 0
         choices = []
         for actor in actor_list:
             actor_id = actor.uid # This might be a new actor in the system
@@ -206,7 +208,7 @@ class Actor():
                 self.distances[actor_id] = self.distance_to(actor.position)
 
             dist_cont = Actor.distance_parameter*self.distances[actor_id]
-            assert(dist_cont >= 0)
+
             xn, n = self.experiences[actor_id]
             x = xn / n
             if n != 0:
@@ -283,12 +285,12 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, uid, system_size, watcher=None, position=(0,0), init_supply=0, init_cash=15):
+    def __init__(self, uid, system_size, watcher=None, position=(0,0), init_supply=0):
         super().__init__(position, uid, system_size, watcher)
 
         # Initial stock and cash
         self.supply = init_supply
-        self.cash   = init_cash + rand()
+        self.cash   = 30 + rand()
 
         self.min_purchase = 10 # Overwrites '1' from parent class
         self.expansion_amount = 20 # When we have 2* this, we can expand
@@ -337,9 +339,9 @@ class Seller(Actor):
             self.supply += amount
 
             function = ""
-            if self.supply > 3*self.expansion_amount:
+            if self.supply > 2*self.expansion_amount:
                 # Costs us 1 for setup cost and one for new seller supply
-                self.supply -= 2*self.expansion_amount
+                self.supply -= self.expansion_amount
                 function = "New"
 
             # Do a quality test
@@ -349,7 +351,7 @@ class Seller(Actor):
             # not sure what to do here?
             #self.generate_new_strategy()
             self.num_out += 1
-            if self.num_out > 10:
+            if self.num_out > Actor.bust_number:
                 # We have gone bust
                 return None, "End"
             else:
@@ -387,7 +389,7 @@ class Supplier(Actor):
         # Initial inventory and cash
         self.supply = 300
         self.cash   = rand()
-        self.expansion_amount = 500
+        self.expansion_amount = 300
         self.num_out = 0 # Keep track of how many times we don't make sales
 
         # Start with random quality
@@ -424,25 +426,30 @@ class Supplier(Actor):
 
 
     def make_meds(self):
-        self.cash -= 4 # Running costs
+        #self.cash -= 2 # Running costs
         if self.cash > 1:
             self.num_out = 0
             amount = np.floor(self.cash)
             qual = self.supply*self.quality + amount*self.strat
             self.quality = qual / (self.supply + amount)
             self.supply += amount
-            if self.supply > 3*self.expansion_amount:
+            self.cash -= amount
+
+            if self.supply > 2*self.expansion_amount:
                 # We can make another supplier actor
                 debug(self.supply)
                 # 1 goes to setup costs, 1 goes to new supplier stock
-                self.supply -= 2*self.expansion_amount
+                self.supply -= self.expansion_amount
                 return "New"
+
+            return ""
 
         else:
             #debug("Supplier {} ran out of cash".format(self.uid))
+            #self.cash = 0 # Gives suppliers a chance to come back
             self.watcher.inform_no_sup_sales(self.uid)
             self.num_out += 1
-            if self.num_out > 10:
+            if self.num_out > Actor.bust_number:
                 # We have gone bust
                 return "End"
             #self.generate_new_strategy()

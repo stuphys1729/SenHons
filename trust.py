@@ -167,7 +167,9 @@ class Simulation():
             self.patients[samples[i]].choose_best(self.sellers)
 
         to_remove = []
-        for i in range(len(self.sellers)):
+        indices = list(range(len(self.sellers)))
+        shuffle(indices)
+        for i in indices:
             seller = self.sellers[i]
             # Each seller chooses their current best supplier
             function = seller.choose_best(self.suppliers)

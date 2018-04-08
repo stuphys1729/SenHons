@@ -39,10 +39,12 @@ class Animator():
         self.towns = data[6]
         patches = []
 
-        plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", picker=5)
-        plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", cmap='YlGn', marker='X', picker=5)
+        plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", vmin=0, vmax=1, picker=5)
+        plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", cmap='YlGn', marker='X', vmin=0, vmax=1, picker=5)
         self.max_x = max( [ t.x + 5*t.sigmax for t in self.towns] )
         self.max_y = max( [ t.y + 5*t.sigmay for t in self.towns] )
+        self.ax_array.set_xlim(0, self.max_x)
+        self.ax_array.set_ylim(0, self.max_y)
 
         for town in self.towns:
             patches.append( Ellipse( (town.x,town.y), 2*town.sigmax, 2*town.sigmay, fill=False, color='r' ) )
@@ -85,8 +87,8 @@ class Animator():
         #plt.gray()
 
         scatters = []
-        scatters.append(plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", picker=5) )
-        scatters.append(plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", picker=5, cmap='YlGn', marker='X') )
+        scatters.append(plt.scatter(x, y, c=qual, s=200, cmap='YlGn', vmin=0, vmax=1, label="Sellers", picker=5) )
+        scatters.append(plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", picker=5, cmap='YlGn', vmin=0, vmax=1, marker='X') )
 
         patches = []
         for town in self.towns:
