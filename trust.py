@@ -14,6 +14,7 @@ from multiprocessing import Process, Queue, Pipe
 from logging import basicConfig, debug, DEBUG
 import time
 import copy
+from optparse import OptionParser
 
 from actors import *
 from animator import Animator
@@ -56,6 +57,7 @@ class Simulation():
         if env_file:
             self.set_positions(self.environment)
         else:
+            self.environment = None
             self.set_positions()
 
         if self.sellers[0].cash > 0:    # We have chosen to give sellers some
@@ -248,16 +250,17 @@ def run_sim(num_trials, env_file=None):
     supx    = [supplier.position[0] for supplier in sim.suppliers]
     supy    = [supplier.position[1] for supplier in sim.suppliers]
     supq    = [supplier.quality for supplier in sim.suppliers]
-    towns   = []
-    if sim.environment:
-        towns = sim.environment.towns
 
     plot_queue = Queue()
     mine, theirs = Pipe()
-    plot_queue.put( (x, y, q, supx, supy, supq, towns) )
-    #plot_queue.put( (x, q, supx, supq) )
-    animator = Animator(plot_queue, theirs)
+    towns   = []
+    if sim.environment:
+        towns = sim.environment.towns
+        plot_queue.put( (x, y, q, supx, supy, supq, towns) )
+    else:
+        plot_queue.put( (x, q, supx, supq) )
 
+    animator = Animator(plot_queue, theirs)
     animator_proc = Process(target=animator.animate)
     animator_proc.start()
 
@@ -295,7 +298,10 @@ def run_sim(num_trials, env_file=None):
             supy    = [supplier.position[1] for supplier in sim.suppliers]
             supq    = [supplier.quality for supplier in sim.suppliers]
 
-            plot_queue.put( (x, y, q, supx, supy, supq) )
+            if sim.environment:
+                plot_queue.put( (x, y, q, supx, supy, supq) )
+            else:
+                plot_queue.put( (x, q, supx, supq) )
             #plot_queue.put( (x, q, supx, supq) )
             print("Mean Quality: {}".format(sim.watcher.get_mean_qual()))
             quals = [s.quality for s in sim.sellers]
@@ -320,15 +326,24 @@ def run_sim(num_trials, env_file=None):
     animator_proc.join()
 
 def main():
-    #num_trials = 21
-    num_trials = 400
-
     global stop
     stop  = False
-    env = Environment("trust.config")
-    run_sim(num_trials, 'trust.config')
-    #sim = Simulation(200, 20, 2)
-    #print(sim)
+
+    parser = OptionParser("Usage: >> python trust.py [options] <config_file>")
+    parser.add_option("-e", action="store_true", default=False,
+        help="Use this option to use the environemt functionality")
+    parser.add_option("-n", action="store", dest="n_runs", default=1000, type="int",
+        help="Use this to specify the maximum number of runs (default: 1000)")
+
+    (options, args) = parser.parse_args()
+
+    num_trials = options.n_runs
+
+    if options.e:
+        run_sim(num_trials, args[0])
+    else:
+        run_sim(num_trials)
+
 
 
 if __name__ == "__main__":
