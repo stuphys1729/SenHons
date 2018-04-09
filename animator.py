@@ -71,7 +71,7 @@ class Animator():
         plt.scatter(supx, supq, color='red', s=200, picker=5, label="Suppliers")
 
         self.max_x = max(x)
-        self.ax_array.add_line(Q_line)
+        #self.ax_array.add_line(Q_line)
         self.ax_array.set_ylim(0, 1.1)
         self.ax_array.set_xlim(0, self.max_x)
         return
@@ -119,7 +119,7 @@ class Animator():
         Q_line = Line2D(x, qual, color="blue", alpha=0.5)
         plt.scatter(x, qual, color="blue", s=50, picker=2, label="Sellers")
         plt.scatter(supx, supq, color='red', s=200, picker=5, label="Suppliers")
-        self.ax_array.add_line(Q_line)
+        #self.ax_array.add_line(Q_line)
 
     def update(self, i):
         #logging.debug("Trying to update plot")
