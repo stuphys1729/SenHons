@@ -336,10 +336,13 @@ def run_sim(num_trials, sim):
     debug("Simulation was {} ahead of animation".format(plot_queue.qsize()))
     while not plot_queue.empty():
         time.sleep(0.05)
+        if not (animator_proc.is_alive()):
+            break
 
     plot_queue.put("Stop")
-    wait_for_input(sim, mine)
-    animator_proc.join()
+    if animator_proc.is_alive():
+        wait_for_input(sim, mine)
+        animator_proc.join()
 
     plt.clf()
     time.sleep(0.1)
