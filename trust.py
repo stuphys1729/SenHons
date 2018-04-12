@@ -14,6 +14,7 @@ from multiprocessing import Process, Queue, Pipe
 from logging import basicConfig, debug, DEBUG
 import time
 import copy
+import sys
 from optparse import OptionParser
 
 from actors import *
@@ -83,27 +84,27 @@ class Simulation():
             for patient in self.patients:
                 patient.position = (pos+rand(), rand())
                 pos += ratio
-            debug("System size: " + str(self.system_size))
-            debug("Pos of last patient: {}".format(pos-ratio))
+            #debug("System size: " + str(self.system_size))
+            #debug("Pos of last patient: {}".format(pos-ratio))
 
             ratio = np.floor(self.ni/self.nj)
-            debug("Ratio of Patients to Sellers: {}".format(ratio))
+            #debug("Ratio of Patients to Sellers: {}".format(ratio))
             pos = 0.0
             for seller in self.sellers:
                 seller.position = (pos+rand(), rand())
                 pos += ratio
-            debug("Pos of last Seller: {}".format(pos-ratio))
+            #debug("Pos of last Seller: {}".format(pos-ratio))
 
             ratio = np.floor(self.ni/self.nk)
-            debug("Ratio of Patients to Suppliers: {}".format(ratio))
+            #debug("Ratio of Patients to Suppliers: {}".format(ratio))
             pos = 0.0
             for supplier in self.suppliers:
                 supplier.position = (pos+rand(), rand())
                 pos += ratio
-            debug("Pos of last Supplier: {}\n".format(pos-ratio))
+            #debug("Pos of last Supplier: {}\n".format(pos-ratio))
 
         else: # We have a set of towns to get our positions from
-            debug("System size: " + str(self.system_size))
+            #debug("System size: " + str(self.system_size))
 
             for patient in self.patients:
                 patient.position = environment.get_position()
@@ -350,6 +351,35 @@ def run_sim(num_trials, sim):
     plt.plot(range(0, num_trials, 10), mean_qualities)
     plt.show()
 
+def run_sims(ni, nj, nk, num_trials, dynam_price, dynam_actors, num_sims, env_file=None):
+
+    sys.stdout.write("Running {} different simulaions: ".format(num_sims))
+    sys.stdout.write("[%s]" % (" " * num_sims))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (num_sims+1))
+
+    sims = []
+    for i in range(num_sims):
+        sim = Simulation(ni, nj, nk, env_file, dynam_price, dynam_actors)
+
+        for j in range(num_trials):
+            sim.time_step_sto()
+            if (j % 10 == 0):
+                sim.watcher.get_mean_qual()
+            sim.watcher.reset()
+
+        sims.append(sim.watcher.mean_quality_list)
+
+        sys.stdout.write("#")
+        sys.stdout.flush()
+    sys.stdout.write("\n")
+
+    x = np.linspace(0, num_trials, len(sims[0]))
+    for i in range(num_sims):
+        plt.plot(x, sims[i], c='b', alpha=0.2)
+
+    plt.show()
+
 def main():
     global stop
     stop  = False
@@ -369,6 +399,8 @@ def main():
         help="Use this option to specify the number of sellers (default: 100)")
     parser.add_option("--nk", action="store", default=10, type="int",
         help="Use this option to specify the number of suppliers (default: 10)")
+    parser.add_option("--series", action="store", default=1, type="int",
+        help="Use this option to run a series of simulations and plot the results")
 
     (options, args) = parser.parse_args()
 
@@ -379,11 +411,17 @@ def main():
     dynam_price = options.dp
     dynam_actors = options.da
 
+    if options.series > 1:
+        if options.e:
+            run_sims(ni, nj, nk, num_trials, dynam_price, dynam_actors, options.series, args[0])
+        else:
+            run_sims(ni, nj, nk, num_trials, dynam_price, dynam_actors, options.series)
 
-    if options.e:
-        sim = Simulation(ni, nj, nk, args[0], dynam_price, dynam_actors)
     else:
-        sim = Simulation(ni, nj, nk, None, dynam_price, dynam_actors)
+        if options.e:
+            sim = Simulation(ni, nj, nk, args[0], dynam_price, dynam_actors)
+        else:
+            sim = Simulation(ni, nj, nk, None, dynam_price, dynam_actors)
 
     run_sim(num_trials, sim)
 

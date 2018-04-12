@@ -216,12 +216,16 @@ class Actor():
             dist_cont = Actor.distance_parameter*self.distances[actor_id]
 
             xn, n = self.experiences[actor_id]
-            x = xn / n
+
             if n != 0:
-                ucb = x + Actor.explore_parameter*math.sqrt(
-                                                        2*math.log(self.N)/n )
+                x = xn / n
+                exp = Actor.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
+                ucb = x + exp
+
+                #if type(actor) == Seller and self.uid == 0:
+                #    debug("{} id: {} | score: {} + {} ({}/{}) | dist: {}".format(str(actor), actor_id, x, exp, xn, n, dist_cont))
             else:
-                ucb = 1.0 # avoiding division by 0
+                ucb = 1.5 # avoiding division by 0
             #       trust - distance  price
             total = ucb - dist_cont - Actor.cost_parameter*actor.price
             choices.append(total)
@@ -236,6 +240,8 @@ class Actor():
         for dep in reversed(top_n):
             if actor_list[dep].supply >= self.min_purchase:
                 best = actor_list[dep]
+                #if type(actor) == Seller and self.uid == 0:
+                #    debug("Chose {} with score {}".format(best, choices[dep]))
                 break
             else:
                 self.watcher.inform_oos()
@@ -249,9 +255,11 @@ class Actor():
 
 
         result, function = self.buy_from(best) # specific to class
-        if result != None:
+        if result == None:
+            return function
+        if result == 1: # If it was positive, increase xn
             self.experiences[best.uid][0] += 1
-        self.experiences[best.uid][1] += 1
+        self.experiences[best.uid][1] += 1 # always increase n
 
         return function
 
