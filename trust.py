@@ -364,7 +364,7 @@ def run_sims(ni, nj, nk, num_trials, dynam_price, dynam_actors, num_sims, env_fi
 
         for j in range(num_trials):
             sim.time_step_sto()
-            if (j % 10 == 0):
+            if (j % 2 == 0):
                 sim.watcher.get_mean_qual()
             sim.watcher.reset()
 
@@ -375,10 +375,50 @@ def run_sims(ni, nj, nk, num_trials, dynam_price, dynam_actors, num_sims, env_fi
     sys.stdout.write("\n")
 
     x = np.linspace(0, num_trials, len(sims[0]))
-    for i in range(num_sims):
+    plt.plot(x, sims[i], c='b', alpha=0.2, label="Individual Run")
+    for i in range(1, num_sims):
         plt.plot(x, sims[i], c='b', alpha=0.2)
 
+    avg = []
+    for j in range(len(sims[0])):
+        temp = 0
+        for i in range(num_sims):
+            temp += sims[i][j]
+        avg.append(temp/num_sims)
+
+    plt.plot(x, avg, c='r', label="Average", linewidth=2)
+    plt.xlabel("Timestep")
+    plt.ylabel("Average Purchased Medicine Quality")
+    plt.legend()
+
     plt.show()
+
+    if True: # Enable this for normalisation plot
+        plt.clf()
+
+        for i in range(num_sims):
+            beg = sims[i][0]
+            for j in range(len(sims[i])):
+                sims[i][j] = sims[i][j] - beg
+
+        x = np.linspace(0, num_trials, len(sims[0]))
+        plt.plot(x, sims[i], c='b', alpha=0.2, label="Individual Run")
+        for i in range(1, num_sims):
+            plt.plot(x, sims[i], c='b', alpha=0.2)
+
+        avg = []
+        for j in range(len(sims[0])):
+            temp = 0
+            for i in range(num_sims):
+                temp += sims[i][j]
+            avg.append(temp/num_sims)
+
+        plt.plot(x, avg, c='r', label="Average", linewidth=2)
+        plt.xlabel("Timestep")
+        plt.ylabel("Average Purchased Medicine Quality")
+        plt.legend()
+
+        plt.show()
 
 def main():
     global stop
@@ -423,7 +463,7 @@ def main():
         else:
             sim = Simulation(ni, nj, nk, None, dynam_price, dynam_actors)
 
-    run_sim(num_trials, sim)
+        run_sim(num_trials, sim)
 
 
 if __name__ == "__main__":
