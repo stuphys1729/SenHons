@@ -14,6 +14,7 @@ from multiprocessing import Process, Queue, Pipe
 from logging import basicConfig, debug, DEBUG
 import time
 import copy
+from optparse import OptionParser
 
 from actors import *
 from animator import Animator
@@ -313,16 +314,24 @@ def run_sim(num_trials, env_file=None):
     animator_proc.join()
 
 def main():
-    #num_trials = 10
-    num_trials = 1000
-
     global stop
     stop  = False
-    env = Environment("trust.config")
-    #run_sim(num_trials, 'trust.config')
-    run_sim(num_trials)
-    #sim = Simulation(200, 20, 2)
-    #print(sim)
+
+    parser = OptionParser("Usage: >> python trust.py [options] <config_file>")
+    parser.add_option("-e", action="store_true", default=False,
+        help="Use this option to use the environemt functionality")
+    parser.add_option("-n", action="store", dest="n_runs", default=1000, type="int",
+        help="Use this to specify the maximum number of runs (default: 1000)")
+
+    (options, args) = parser.parse_args()
+
+    num_trials = options.n_runs
+
+    if options.e:
+        run_sim(num_trials, args[0])
+    else:
+        run_sim(num_trials)
+
 
 
 if __name__ == "__main__":
