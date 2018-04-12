@@ -132,7 +132,7 @@ class Town():
 class Actor():
     """ This is the generalised class for actors in the simulation """
     # Constants for all actors
-    distance_parameter = 0.005
+    distance_parameter = 0.001
     explore_parameter = 0.5
     cost_parameter = 0.5
 
