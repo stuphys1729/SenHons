@@ -381,7 +381,7 @@ def main():
 
 
     if options.e:
-        sim = Simulation(ni, nj, nk, env_file, dynam_price, dynam_actors)
+        sim = Simulation(ni, nj, nk, args[0], dynam_price, dynam_actors)
     else:
         sim = Simulation(ni, nj, nk, None, dynam_price, dynam_actors)
 

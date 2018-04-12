@@ -134,7 +134,7 @@ class Actor():
     # Constants for all actors
     distance_parameter = 0.001
     explore_parameter = 0.5
-    cost_parameter = 0.5
+    cost_parameter = 0.3
 
     top_n = 20
     epsilon = 0.1
@@ -258,9 +258,11 @@ class Actor():
     def make_vendor_link(self, old, new):
         # Initialises the actor's trust in the new vendor based on their trust
         # in the old one
-        self.experiences[new] = np.array(self.experiences[old], copy=True)
         # However, we are `less sure` about this value since it a new vendor
-        self.experiences[new][1] = np.int16(np.floor(self.experiences[new][1]/2))
+        self.experiences[new] = np.array( [
+            np.int16(np.ceil(self.experiences[old][0]/2)),
+            np.int16(np.ceil(self.experiences[old][1]/2))
+        ])
 
 
 class Patient(Actor):
@@ -375,7 +377,7 @@ class Seller(Actor):
         """ A method to make a new seller from this one's properties """
         experiences = copy.deepcopy(self.experiences)
         quality = self.quality
-        price = self.price
+        price = abs(min((self.price + Actor.epsilon*(rand()-0.5)), 1.0))
         N = self.N
         supply = self.expansion_amount
         new_seller = Seller(uid, self.system_size, self.watcher,
@@ -467,21 +469,13 @@ class Supplier(Actor):
             if self.num_out > Actor.bust_number:
                 # We have gone bust
                 return "End"
-            #self.generate_new_strategy()
-
-        # Either way, self.cash is now between 0 and 1
-
-    def generate_new_strategy(self):
-        self.strat = abs(min((self.strat + Actor.epsilon*(rand()-0.5)), 1.0))
-        self.price = rand() + 1 # depend on quality?
-        return
 
 
     def make_new(self, uid, position):
         """ A method to make a new supplier from this one's properties """
         quality = self.quality
         price = self.price
-        strategy = self.strat
+        strategy = abs(min((self.strat + Actor.epsilon*(rand()-0.5)), 1.0))
         supply = self.expansion_amount
         new_supplier = Supplier(uid, self.system_size, self.watcher,
                                     self.dynamic_price, position, supply)
