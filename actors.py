@@ -2,6 +2,7 @@ import numpy as np
 import math
 from random import gauss, random as rand
 from logging import basicConfig, debug, DEBUG
+import copy
 
 basicConfig(level=DEBUG,
             format='(%(threadName)-10s) %(message)s',
@@ -41,11 +42,11 @@ class Watcher():
                                 seller.quality) / (self.num_purchases+1)
         self.num_purchases += 1
 
-    def inform_choice(self, index):
-        if index in self.choice_tally:
-            self.choice_tally[index] += 1
+    def inform_choice(self, uid):
+        if uid in self.choice_tally:
+            self.choice_tally[uid] += 1
         else:
-            self.choice_tally[index] = 1
+            self.choice_tally[uid] = 1
 
     def inform_oos(self):
         self.out_of_stock += 1
@@ -139,8 +140,9 @@ class Actor():
     def __init__(self, position, uid, system_size, watcher=None):
         self.watcher        = watcher
         self.position       = position
-        self.uid             = uid
+        self.uid            = uid
         self.min_purchase   = 1
+        self.expansion_amount = 1e10 # Stops expansion happening unless we override this
         self.system_size    = system_size
         # Initialise the array of trust scores for each seller/supplier
         self.experiences    = {}
@@ -199,8 +201,7 @@ class Actor():
         for actor in actor_list:
             actor_id = actor.uid # This might be a new actor in the system
             if not (actor_id in self.experiences):
-                print(self.experiences)
-                quit()
+                # Start tracking the new actor
                 self.experiences[actor_id] = np.zeros(2, dtype=np.int16)
                 self.distances[actor_id] = self.distance_to(actor.position)
 
@@ -222,7 +223,7 @@ class Actor():
         top_n = np.argpartition(choices, range(len(choices)-consider,
                                     len(choices)))[len(choices)-consider:]
         #debug(top_n)
-        self.watcher.inform_choice(top_n[-1])
+        self.watcher.inform_choice(actor_list[top_n[-1]].uid)
         best = None
         for dep in reversed(top_n):
             if actor_list[dep].supply >= self.min_purchase:
@@ -239,12 +240,12 @@ class Actor():
             raise AttributeError("Best {} were all sold out".format(top_n))
 
 
-        result = self.buy_from(best) # specific to class
-        if result:
+        result, function = self.buy_from(best) # specific to class
+        if result != None:
             self.experiences[best.uid][0] += 1
         self.experiences[best.uid][1] += 1
 
-        return
+        return function
 
 
 class Patient(Actor):
@@ -269,7 +270,7 @@ class Patient(Actor):
         # Patient uses medicine straight away
         better = self.take(medicine)
 
-        return better
+        return better, "" # Second argument to keep with inherited class template
 
     def take(self, medicine):
         """ This can be extended for more medicine types """
@@ -282,7 +283,7 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, uid, system_size, watcher=None, position=(0,0), init_supply=0, init_cash=20):
+    def __init__(self, uid, system_size, watcher=None, position=(0,0), init_supply=0, init_cash=15):
         super().__init__(position, uid, system_size, watcher)
 
         # Initial stock and cash
@@ -290,6 +291,8 @@ class Seller(Actor):
         self.cash   = init_cash + rand()
 
         self.min_purchase = 10 # Overwrites '1' from parent class
+        self.expansion_amount = 20 # When we have 2* this, we can expand
+        self.num_out = 0 # Keep track of the number of times we make no sales
 
         # Initial price and quality are random
         self.price      = rand() + 1
@@ -324,6 +327,7 @@ class Seller(Actor):
         # Sellers want to buy as much as possible
         amount = int(min(np.floor(self.cash/supplier.price), supplier.supply))
         if amount > 0:
+            self.num_out = 0
             supplier.make_purchase(amount)
             self.cash -= amount*supplier.price
 
@@ -332,23 +336,37 @@ class Seller(Actor):
                             + supplier.quality*amount)/(self.supply + amount)
             self.supply += amount
 
+            function = ""
+            if self.supply > 3*self.expansion_amount:
+                # Costs us 1 for setup cost and one for new seller supply
+                self.supply -= 2*self.expansion_amount
+                function = "New"
+
             # Do a quality test
             result = self.test_supply(supplier.quality)
-            return result
+            return result, function
         else: # We ran out of money
             # not sure what to do here?
-            self.generate_new_strategy()
-            return 0
+            #self.generate_new_strategy()
+            self.num_out += 1
+            if self.num_out > 10:
+                # We have gone bust
+                return None, "End"
+            else:
+                return None, ""
+
 
     def make_new(self, uid, position):
         """ A method to make a new seller from this one's properties """
         experiences = copy.deepcopy(self.experiences)
         quality = self.quality
         price = self.price
+        N = self.N
         new_seller = Seller(uid, self.system_size, self.watcher, position)
         new_seller.experiences = experiences
         new_seller.quality = quality
         new_seller.price = price
+        new_seller.N = N
 
         return new_seller
 
@@ -368,14 +386,16 @@ class Supplier(Actor):
 
         # Initial inventory and cash
         self.supply = 300
-        self.cash   = 10 + rand()
+        self.cash   = rand()
+        self.expansion_amount = 500
+        self.num_out = 0 # Keep track of how many times we don't make sales
 
         # Start with random quality
         self.quality = rand()
         self.strat  = self.quality
 
         # Initial cost random
-        self.price = 0.5 + rand() # Could be dependent on quality?
+        self.price = 1.0 + 0.25*rand() # Could be dependent on quality?
         # self.cost = self.quality + rand()  ?
 
         return
@@ -406,14 +426,25 @@ class Supplier(Actor):
     def make_meds(self):
         self.cash -= 2 # Running costs
         if self.cash > 1:
+            self.num_out = 0
             amount = np.floor(self.cash)
             qual = self.supply*self.quality + amount*self.strat
             self.quality = qual / (self.supply + amount)
             self.supply += amount
+            if self.supply > 3*self.expansion_amount:
+                # We can make another supplier actor
+                debug(self.supply)
+                # 1 goes to setup costs, 1 goes to new supplier stock
+                self.supply -= 2*self.expansion_amount
+                return "New"
 
         else:
             #debug("Supplier {} ran out of cash".format(self.uid))
             self.watcher.inform_no_sup_sales(self.uid)
+            self.num_out += 1
+            if self.num_out > 10:
+                # We have gone bust
+                return "End"
             #self.generate_new_strategy()
 
         # Either way, self.cash is now between 0 and 1
