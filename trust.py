@@ -169,7 +169,9 @@ class Simulation():
             self.patients[samples[i]].choose_best(self.sellers)
 
         to_remove = []
-        for i in range(len(self.sellers)):
+        indices = list(range(len(self.sellers)))
+        shuffle(indices)
+        for i in indices:
             seller = self.sellers[i]
             # Each seller chooses their current best supplier
             function = seller.choose_best(self.suppliers)
@@ -317,7 +319,7 @@ def run_sim(num_trials, env_file=None):
             print("Number failed sales: {}".format(sim.watcher.out_of_stock))
             max_cash = max([sell.cash for sell in sim.sellers])
             print("Maximum cash on sellers: {}".format(max_cash))
-            print(sim.watcher.sup_no_sales)
+            #print(sim.watcher.sup_no_sales)
             print("-" * 80)
         sim.watcher.reset()
 

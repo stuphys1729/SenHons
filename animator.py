@@ -47,6 +47,8 @@ class Animator():
         else:
             self.max_x = max(x) + 10
             self.max_y = max(y) + 0.1
+        self.ax_array.set_xlim(0, self.max_x)
+        self.ax_array.set_ylim(0, self.max_y)
 
         for town in self.towns:
             patches.append( Ellipse( (town.x,town.y), 2*town.sigmax, 2*town.sigmay, fill=False, color='r' ) )
@@ -89,8 +91,8 @@ class Animator():
         #plt.gray()
 
         scatters = []
-        scatters.append(plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", picker=5) )
-        scatters.append(plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", picker=5, cmap='YlGn', marker='X') )
+        scatters.append(plt.scatter(x, y, c=qual, s=200, cmap='YlGn', vmin=0, vmax=1, label="Sellers", picker=5) )
+        scatters.append(plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", picker=5, cmap='YlGn', vmin=0, vmax=1, marker='X') )
 
         patches = []
         for town in self.towns:
