@@ -431,6 +431,7 @@ class Supplier(Actor):
             qual = self.supply*self.quality + amount*self.strat
             self.quality = qual / (self.supply + amount)
             self.supply += amount
+            self.cash -= amount
             if self.supply > 3*self.expansion_amount:
                 # We can make another supplier actor
                 debug(self.supply)

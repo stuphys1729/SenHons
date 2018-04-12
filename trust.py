@@ -244,8 +244,8 @@ def wait_for_input(sim, connection):
 
 def run_sim(num_trials, env_file=None):
 
-    sim = Simulation(100, 20, 2, env_file)
-    #sim = Simulation(1000, 100, 10, env_file)
+    #sim = Simulation(100, 20, 2, env_file)
+    sim = Simulation(1000, 100, 10, env_file)
     global stop
 
     x       = [seller.position[0] for seller in sim.sellers]
