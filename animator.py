@@ -41,8 +41,12 @@ class Animator():
 
         plt.scatter(x, y, c=qual, s=200, cmap='YlGn', label="Sellers", picker=5)
         plt.scatter(supx, supy, c=supq, s=400, label="Suppliers", cmap='YlGn', marker='X', picker=5)
-        self.max_x = max( [ t.x + 5*t.sigmax for t in self.towns] )
-        self.max_y = max( [ t.y + 5*t.sigmay for t in self.towns] )
+        if self.towns != []:
+            self.max_x = max( [ t.x + 5*t.sigmax for t in self.towns] )
+            self.max_y = max( [ t.y + 5*t.sigmay for t in self.towns] )
+        else:
+            self.max_x = max(x) + 10
+            self.max_y = max(y) + 0.1
 
         for town in self.towns:
             patches.append( Ellipse( (town.x,town.y), 2*town.sigmax, 2*town.sigmay, fill=False, color='r' ) )

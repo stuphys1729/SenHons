@@ -56,6 +56,7 @@ class Simulation():
         if env_file:
             self.set_positions(self.environment)
         else:
+            self.environment = None
             self.set_positions()
 
         if self.sellers[0].cash > 0:    # We have chosen to give sellers some
@@ -236,16 +237,17 @@ def run_sim(num_trials, env_file=None):
     supx    = [supplier.position[0] for supplier in sim.suppliers]
     supy    = [supplier.position[1] for supplier in sim.suppliers]
     supq    = [supplier.quality for supplier in sim.suppliers]
-    towns   = []
-    if sim.environment:
-        towns = sim.environment.towns
 
     plot_queue = Queue()
     mine, theirs = Pipe()
-    plot_queue.put( (x, y, q, supx, supy, supq, towns) )
-    #plot_queue.put( (x, q, supx, supq) )
-    animator = Animator(plot_queue, theirs)
+    towns   = []
+    if sim.environment:
+        towns = sim.environment.towns
+        plot_queue.put( (x, y, q, supx, supy, supq, towns) )
+    else:
+        plot_queue.put( (x, q, supx, supq) )
 
+    animator = Animator(plot_queue, theirs)
     animator_proc = Process(target=animator.animate)
     animator_proc.start()
 
@@ -283,7 +285,10 @@ def run_sim(num_trials, env_file=None):
             supy    = [supplier.position[1] for supplier in sim.suppliers]
             supq    = [supplier.quality for supplier in sim.suppliers]
 
-            plot_queue.put( (x, y, q, supx, supy, supq) )
+            if sim.environment:
+                plot_queue.put( (x, y, q, supx, supy, supq) )
+            else:
+                plot_queue.put( (x, q, supx, supq) )
             #plot_queue.put( (x, q, supx, supq) )
             print("Mean Quality: {}".format(sim.watcher.get_mean_qual()))
             quals = [s.quality for s in sim.sellers]
@@ -314,7 +319,8 @@ def main():
     global stop
     stop  = False
     env = Environment("trust.config")
-    run_sim(num_trials, 'trust.config')
+    #run_sim(num_trials, 'trust.config')
+    run_sim(num_trials)
     #sim = Simulation(200, 20, 2)
     #print(sim)
 
