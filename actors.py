@@ -132,7 +132,7 @@ class Town():
 class Actor():
     """ This is the generalised class for actors in the simulation """
     # Constants for all actors
-    distance_parameter = 0.005
+    distance_parameter = 0.001
     explore_parameter = 0.5
     cost_parameter = 0.5
 
@@ -306,7 +306,7 @@ class Seller(Actor):
         self.cash   = 30 + rand()
 
         self.min_purchase = 10 # Overwrites '1' from parent class
-        self.expansion_amount = 20 # When we have 2* this, we can expand
+        self.expansion_amount = 50 # When we have 2* this, we can expand
         self.num_out = 0 # Keep track of the number of times we make no sales
 
         # Initial price and quality are random
