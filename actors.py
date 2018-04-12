@@ -134,16 +134,19 @@ class Actor():
     # Constants for all actors
     distance_parameter = 0.005
     explore_parameter = 0.5
+    cost_parameter = 0.5
+
     top_n = 20
     epsilon = 0.1
     bust_number = 20
 
-    def __init__(self, position, uid, system_size, watcher=None):
+    def __init__(self, position, uid, system_size, watcher=None, dynam_price=False):
         self.watcher        = watcher
         self.position       = position
         self.uid            = uid
         self.min_purchase   = 1
-        self.expansion_amount = 1e10 # Stops expansion happening unless we override this
+        self.dynamic_price  = dynam_price
+
         self.system_size    = system_size
         # Initialise the array of trust scores for each seller/supplier
         self.experiences    = {}
@@ -181,7 +184,8 @@ class Actor():
 
             return np.sqrt( x_dist**2 + y_dist**2 )
         else:
-            debug(self.system_size)
+            raise AttributeError(self.system_size)
+
 
     def make_dist_array(self, dependencies):
 
@@ -205,6 +209,8 @@ class Actor():
             if not (actor_id in self.experiences):
                 # Start tracking the new actor
                 self.experiences[actor_id] = np.zeros(2, dtype=np.int16)
+            if not (actor_id in self.distances):
+                # We might have inherited experiences, but not the distance
                 self.distances[actor_id] = self.distance_to(actor.position)
 
             dist_cont = Actor.distance_parameter*self.distances[actor_id]
@@ -216,8 +222,8 @@ class Actor():
                                                         2*math.log(self.N)/n )
             else:
                 ucb = 1.0 # avoiding division by 0
-            #       trust - distance - price
-            total = ucb - dist_cont - actor.price
+            #       trust - distance  price
+            total = ucb - dist_cont - Actor.cost_parameter*actor.price
             choices.append(total)
         self.N += 1
 
@@ -249,13 +255,20 @@ class Actor():
 
         return function
 
+    def make_vendor_link(self, old, new):
+        # Initialises the actor's trust in the new vendor based on their trust
+        # in the old one
+        self.experiences[new] = np.array(self.experiences[old], copy=True)
+        # However, we are `less sure` about this value since it a new vendor
+        self.experiences[new][1] = np.int16(np.floor(self.experiences[new][1]/2))
+
 
 class Patient(Actor):
     """
     This is the class to model each patient
     """
 
-    def __init__(self, uid, system_size, watcher=None, position=(0,0)):
+    def __init__(self, uid, system_size, watcher, position=(0,0)):
         super().__init__(position, uid, system_size, watcher)
         return
 
@@ -285,8 +298,8 @@ class Seller(Actor):
     This is the class to model a seller of medicine
     """
 
-    def __init__(self, uid, system_size, watcher=None, position=(0,0), init_supply=0):
-        super().__init__(position, uid, system_size, watcher)
+    def __init__(self, uid, system_size, watcher, dynam_price=False, position=(0,0), init_supply=0):
+        super().__init__(position, uid, system_size, watcher, dynam_price)
 
         # Initial stock and cash
         self.supply = init_supply
@@ -313,8 +326,9 @@ class Seller(Actor):
                     self.uid, self.quality, self.price, self.position[0], self.position[1])
 
     def out_of_stock(self):
-        debug("Seller increased their price")
-        self.price += Actor.epsilon*rand()
+        if self.dynamic_price:
+            debug("Seller increased their price")
+            self.price += Actor.epsilon*rand()
 
     def make_purchase(self):
         #debug("Seller selling 1, supply: {} before" .format(self.supply))
@@ -341,7 +355,6 @@ class Seller(Actor):
             function = ""
             if self.supply > 2*self.expansion_amount:
                 # Costs us 1 for setup cost and one for new seller supply
-                self.supply -= self.expansion_amount
                 function = "New"
 
             # Do a quality test
@@ -364,7 +377,10 @@ class Seller(Actor):
         quality = self.quality
         price = self.price
         N = self.N
-        new_seller = Seller(uid, self.system_size, self.watcher, position)
+        supply = self.expansion_amount
+        new_seller = Seller(uid, self.system_size, self.watcher,
+                                self.dynamic_price, position, supply)
+        self.supply -= self.expansion_amount
         new_seller.experiences = experiences
         new_seller.quality = quality
         new_seller.price = price
@@ -383,13 +399,13 @@ class Seller(Actor):
 class Supplier(Actor):
     """ This is the class to model a wholesaler """
 
-    def __init__(self, uid, system_size, watcher, position=(0,0)):
-        super().__init__(position, uid, system_size, watcher)
+    def __init__(self, uid, system_size, watcher, dynam_price=False, position=(0,0), init_supply=500):
+        super().__init__(position, uid, system_size, watcher, dynam_price)
 
         # Initial inventory and cash
-        self.supply = 300
+        self.supply = init_supply
         self.cash   = rand()
-        self.expansion_amount = 300
+        self.expansion_amount = 500
         self.num_out = 0 # Keep track of how many times we don't make sales
 
         # Start with random quality
@@ -412,8 +428,9 @@ class Supplier(Actor):
 
 
     def out_of_stock(self):
-        debug("Supplier increased their price")
-        self.price += Actor.epsilon*rand()
+        if self.dynamic_price:
+            debug("Supplier increased their price")
+            self.price += Actor.epsilon*rand()
 
     def make_purchase(self, amount):
         #debug("Supplier selling {}, supply: {} before".format(
@@ -437,9 +454,7 @@ class Supplier(Actor):
 
             if self.supply > 2*self.expansion_amount:
                 # We can make another supplier actor
-                debug(self.supply)
-                # 1 goes to setup costs, 1 goes to new supplier stock
-                self.supply -= self.expansion_amount
+                #debug(self.supply)
                 return "New"
 
             return ""
@@ -463,11 +478,14 @@ class Supplier(Actor):
 
 
     def make_new(self, uid, position):
-        """ A method to make a new seller from this one's properties """
+        """ A method to make a new supplier from this one's properties """
         quality = self.quality
         price = self.price
         strategy = self.strat
-        new_supplier = Supplier(uid, self.system_size, self.watcher, position)
+        supply = self.expansion_amount
+        new_supplier = Supplier(uid, self.system_size, self.watcher,
+                                    self.dynamic_price, position, supply)
+        self.supply -= self.expansion_amount
         new_supplier.quality = quality
         new_supplier.price = price
         new_supplier.strat = strategy
