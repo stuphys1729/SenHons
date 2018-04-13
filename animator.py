@@ -155,16 +155,14 @@ class Animator():
             x = event.mouseevent.xdata
             x = min(x, self.max_x/2) # 520 the rough width of text box
             y = event.mouseevent.ydata
-            #logging.debug("Actor was clicked: {}".format(ind))
-            #pprint(vars(actor_line))
-            #logging.debug(actor_line._label)
+
             if actor_line._label == "Suppliers":
                 self.callback_pipe.send( ["Supplier", ind] )
                 supp = self.callback_pipe.recv()
-                #pprint(vars(event.mouseevent))
+
                 self.ax_array.text(x+1, y+0.01, repr(supp), size=20,
                                     bbox=dict(boxstyle="round"))
-                #self.ax_array.annotate(str(supp), xy=(x,y), xytext=(x+1, y+0.01) )
+
             else:
                 self.callback_pipe.send( ["Seller", ind] )
                 sell = self.callback_pipe.recv()
@@ -173,7 +171,6 @@ class Animator():
 
 
         def on_key(event):
-            #print('you pressed', event.key, event.xdata, event.ydata)
             if event.key == " ":
                 self.toggle_pause()
 

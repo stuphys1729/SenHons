@@ -302,8 +302,6 @@ def run_sim(num_trials, sim):
                 return
 
 
-        #debug("First Seller Quality: {}".format(sim.sellers[0].quality))
-
         #sim.time_step_sweep()
         sim.time_step_sto()
 
@@ -325,10 +323,8 @@ def run_sim(num_trials, sim):
             print("Mean Quality: {}".format(qual))
             quals = [s.quality for s in sim.sellers]
             top = np.argmax(quals)
-            print("Top Quality:  {} from {}".format(quals[top], top))
             top, n = sim.watcher.get_top()
             print("Top seller: {}, picked {} times".format(top, n))
-            #print("Corresp Quality: {}".format(sim.sellers[top].quality))
             print("Number failed sales: {}".format(sim.watcher.out_of_stock))
             #print(sim.watcher.sup_no_sales)
             print("-" * 80)
@@ -393,7 +389,7 @@ def run_sims(ni, nj, nk, num_trials, dynam_price, dynam_actors, num_sims, env_fi
 
     plt.show()
 
-    if True: # Enable this for normalisation plot
+    if False: # Enable this for normalisation plot
         plt.clf()
 
         for i in range(num_sims):

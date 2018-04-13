@@ -190,14 +190,11 @@ class Actor():
     def make_dist_array(self, dependencies):
 
         for actor in dependencies:
-            #debug("Actor id: {}".format(actor.uid))
             actor_uid = actor.uid
             self.distances[actor_uid] = self.distance_to(actor.position)
             if actor_uid not in self.experiences:
-                #debug("Actor id: {}".format(actor.uid))
                 self.experiences[actor_uid] = np.zeros(2, dtype=np.int16)
                 # We also initialise the experiences counter here
-        #debug(self.experiences)
 
 
     def choose_best(self, actor_list):
@@ -222,11 +219,10 @@ class Actor():
                 exp = Actor.explore_parameter*math.sqrt( 2*math.log(self.N)/n )
                 ucb = x + exp
 
-                #if type(actor) == Seller and self.uid == 0:
-                #    debug("{} id: {} | score: {} + {} ({}/{}) | dist: {}".format(str(actor), actor_id, x, exp, xn, n, dist_cont))
+
             else:
                 ucb = 1.5 # avoiding division by 0
-            #       trust - distance  price
+            #       trust - distance -  price
             total = ucb - dist_cont - Actor.cost_parameter*actor.price
             choices.append(total)
         self.N += 1
@@ -234,14 +230,12 @@ class Actor():
         consider = min(Actor.top_n, len(actor_list))
         top_n = np.argpartition(choices, range(len(choices)-consider,
                                     len(choices)))[len(choices)-consider:]
-        #debug(top_n)
+
         self.watcher.inform_choice(actor_list[top_n[-1]].uid)
         best = None
         for dep in reversed(top_n):
             if actor_list[dep].supply >= self.min_purchase:
                 best = actor_list[dep]
-                #if type(actor) == Seller and self.uid == 0:
-                #    debug("Chose {} with score {}".format(best, choices[dep]))
                 break
             else:
                 self.watcher.inform_oos()
@@ -371,8 +365,6 @@ class Seller(Actor):
             result = self.test_supply(supplier.quality)
             return result, function
         else: # We ran out of money
-            # not sure what to do here?
-            #self.generate_new_strategy()
             self.num_out += 1
             if self.num_out > Actor.bust_number:
                 # We have gone bust
@@ -423,8 +415,7 @@ class Supplier(Actor):
         self.strat  = self.quality
 
         # Initial cost random
-        self.price = 1.0 + 0.25*rand() # Could be dependent on quality?
-        # self.cost = self.quality + rand()  ?
+        self.price = 1.0 + 0.25*rand()
 
         return
 
@@ -443,8 +434,7 @@ class Supplier(Actor):
             self.price += Actor.epsilon*rand()
 
     def make_purchase(self, amount):
-        #debug("Supplier selling {}, supply: {} before".format(
-                                                        #amount, self.supply))
+
         self.supply -= amount
         self.cash += self.price*amount
         if self.supply < 1:
@@ -453,7 +443,7 @@ class Supplier(Actor):
 
 
     def make_meds(self):
-        #self.cash -= 2 # Running costs
+
         if self.cash > 1:
             self.num_out = 0
             amount = np.floor(self.cash)
@@ -464,14 +454,12 @@ class Supplier(Actor):
 
             if self.supply > 2*self.expansion_amount:
                 # We can make another supplier actor
-                #debug(self.supply)
                 return "New"
 
             return ""
 
         else:
-            #debug("Supplier {} ran out of cash".format(self.uid))
-            #self.cash = 0 # Gives suppliers a chance to come back
+
             self.watcher.inform_no_sup_sales(self.uid)
             self.num_out += 1
             if self.num_out > Actor.bust_number:
